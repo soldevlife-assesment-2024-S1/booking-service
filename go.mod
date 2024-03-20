@@ -4,14 +4,12 @@ go 1.22.0
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.3.5
-	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-redsync/redsync/v4 v4.12.1
 	github.com/gofiber/fiber/v2 v2.52.2
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/rubyist/circuitbreaker v2.2.1+incompatible
 	go.elastic.co/apm v1.15.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/telemetry/config v0.18.0
 )
 
 require (
@@ -35,8 +33,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
-	github.com/onsi/gomega v1.32.0 // indirect
 	github.com/peterbourgon/g2s v0.0.0-20170223122336-d4e7ad98afea // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect

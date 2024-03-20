@@ -11,3 +11,9 @@ type Payment struct {
 	TotalAmount  float64 `json:"total_amount" validate:"required"`
 	PaymetMethod string  `json:"payment_method" validate:"required"`
 }
+
+type PoisonedQueue struct {
+	TopicTarget string      `json:"topic_target" validate:"required"`
+	ErrorMsg    string      `json:"error_msg" validate:"required"`
+	Payload     interface{} `json:"payload" validate:"required"`
+}
