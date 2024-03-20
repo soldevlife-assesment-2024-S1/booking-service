@@ -2,7 +2,7 @@
 
 run:
 	@echo "Running application..."
-	doppler run --command="go run cmd/main.go"
+	go run cmd/main.go
 
 clean-tools:
 	@echo "Cleaning tools..."
