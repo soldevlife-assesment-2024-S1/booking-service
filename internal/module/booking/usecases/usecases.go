@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"booking-service/internal/module/booking/models/entity"
 	"booking-service/internal/module/booking/models/request"
 	"booking-service/internal/module/booking/models/response"
 	"booking-service/internal/module/booking/repositories"
@@ -8,15 +9,18 @@ import (
 	"booking-service/internal/pkg/log"
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/reugn/go-quartz/quartz"
 )
 
 type usecase struct {
-	repo    repositories.Repositories
-	log     log.Logger
-	publish message.Publisher
+	repo     repositories.Repositories
+	log      log.Logger
+	publish  message.Publisher
+	jobQueue quartz.JobQueue
 }
 
 // Payment implements Usecase.
@@ -36,10 +40,11 @@ type Usecase interface {
 	Payment(ctx context.Context, payload *request.Payment) error
 }
 
-func New(repo repositories.Repositories, log log.Logger) Usecase {
+func New(repo repositories.Repositories, log log.Logger, publish message.Publisher) Usecase {
 	return &usecase{
-		repo: repo,
-		log:  log,
+		repo:    repo,
+		log:     log,
+		publish: publish,
 	}
 }
 
@@ -86,11 +91,108 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 
 func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.BookTicket) error {
 	// 1. check stock ticket
+
+	stock, err := u.repo.CheckStockTicket(ctx, payload.TicketDetailID)
+	if err != nil {
+		return errors.InternalServerError("error check stock ticket")
+	}
+
+	if stock <= 0 {
+		return errors.BadRequest("stock ticket is empty")
+	}
+
 	// 2. decrement to redis stock ticket
+
+	err = u.repo.DecrementStockTicket(ctx, payload.TicketDetailID)
+	if err != nil {
+		return errors.InternalServerError("error decrement stock ticket")
+	}
+
 	// 3. set booking expired time and payment expired time
+
+	bookExpiredAt := time.Now().Add(time.Hour * 24 * 3)
+	paymentExpiredAt := time.Now().Add(time.Hour * 24 * 1)
+
 	// 5. insert to db (lock table) or use optimistic lock
-	// 6. publish to rabbit mq for decrement stock ticket to ticket service
-	// 7. send notification to user about payment
+
+	specBooking := entity.Booking{
+		UserID:            payload.UserID,
+		TicketDetailID:    payload.TicketDetailID,
+		TotalTickets:      payload.TotalTickets,
+		FullName:          payload.FullName,
+		PersonalID:        payload.PersonalID,
+		BookingDate:       time.Now(),
+		BookingExpiration: bookExpiredAt,
+	}
+
+	bookingID, err := u.repo.UpsertBooking(ctx, &specBooking)
+	if err != nil {
+		return errors.InternalServerError("error upsert booking")
+	}
+
+	// request to calculate total amount
+
+	specPayment := entity.Payment{
+		BookingID:         bookingID,
+		Amount:            0,
+		Currency:          "IDR",
+		Status:            "pending",
+		PaymentMethod:     "",
+		PaymentDate:       time.Now(),
+		PaymentExpiration: paymentExpiredAt,
+	}
+
+	err = u.repo.UpsertPayment(ctx, &specPayment)
+	if err != nil {
+		return errors.InternalServerError("error upsert payment")
+	}
+
+	// 6. start job to check payment expired time
+
+	// scheduledJob := quartz.NewJobDetail(func(ctx context.Context) {
+	// 	// 1. find payment by booking id
+	// 	payment, err := u.repo.FindPaymentByBookingID(ctx, specPayment.ID)
+	// 	if err != nil {
+	// 		u.log.Error(ctx, "error find payment by booking id", err)
+	// 	}
+
+	// 	// 2. if payment status is pending and payment expired time is now
+	// 	if payment.Status == "pending" && payment.PaymentExpiration.Before(time.Now()) {
+	// 		// 3. update payment status to expired
+	// 		payment.Status = "expired"
+	// 		err = u.repo.UpsertPayment(ctx, &payment)
+	// 		if err != nil {
+	// 			u.log.Error(ctx, "error upsert payment", err)
+	// 		}
+	// 	}
+	// }, quartz.NewJobKey("check_payment_expired_time"))
+
+	// 7. publish to rabbit mq for decrement stock ticket to ticket service
+
+	messageUUID := watermill.NewUUID()
+
+	specPayload := request.DecrementStockTicket{
+		TicketDetailID: payload.TicketDetailID,
+		TotalTickets:   payload.TotalTickets,
+	}
+
+	jsonPayload, err := json.Marshal(specPayload)
+	if err != nil {
+		return errors.InternalServerError("error marshal payload")
+	}
+
+	err = u.publish.Publish("decrement_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
+	if err != nil {
+		u.log.Error(ctx, "error publish decrement stock ticket", err)
+	}
+
+	// 8. send notification to user about payment
+
+	err = u.publish.Publish("notification", message.NewMessage(watermill.NewUUID(), []byte("your ticket has been queued")))
+	if err != nil {
+		u.log.Error(ctx, "error publish notification", err)
+	}
+
 	return nil
 }
 

@@ -7,8 +7,8 @@ import (
 
 type Booking struct {
 	ID                string       `db:"id"` // UUID
-	UserID            int          `db:"user_id"`
-	TicketDetailID    int          `db:"ticket_detail_id"`
+	UserID            int64        `db:"user_id"`
+	TicketDetailID    int64        `db:"ticket_detail_id"`
 	TotalTickets      int          `db:"total_tickets"`
 	FullName          string       `db:"full_name"`
 	PersonalID        string       `db:"personal_id"`

@@ -24,7 +24,7 @@ func SetupHttpEngine() *fiber.App {
 		AllowOrigins:     "*",
 		AllowHeaders:     "Origin, Content-Type, Accept",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
-		AllowCredentials: true,
+		AllowCredentials: false,
 	}),
 	)
 

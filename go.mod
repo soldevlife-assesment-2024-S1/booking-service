@@ -34,6 +34,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/peterbourgon/g2s v0.0.0-20170223122336-d4e7ad98afea // indirect
+	github.com/reugn/go-quartz v0.11.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect

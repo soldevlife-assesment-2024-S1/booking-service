@@ -25,15 +25,22 @@ type repositories struct {
 	redisClient    *redis.Client
 }
 
+// InquiryTicketAmount implements Repositories.
+func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID int64) (int64, error) {
+	// implement http call to ticket service
+	panic("unimplemented")
+}
+
 type Repositories interface {
 	// http
 	ValidateToken(ctx context.Context, token string) (response.UserServiceValidate, error)
+	InquiryTicketAmount(ctx context.Context, ticketDetailID int64) (int64, error)
 	// redis
 	CheckStockTicket(ctx context.Context, ticketDetailID int64) (int64, error)
 	DecrementStockTicket(ctx context.Context, ticketDetailID int64) error
 	// db
-	UpsertBooking(ctx context.Context, booking entity.Booking) error
-	UpsertPayment(ctx context.Context, payment entity.Payment) error
+	UpsertBooking(ctx context.Context, booking *entity.Booking) (id string, err error)
+	UpsertPayment(ctx context.Context, payment *entity.Payment) error
 	FindBookingByUserID(ctx context.Context, userID int64) (entity.Booking, error)
 	FindPaymentByBookingID(ctx context.Context, bookingID int64) (entity.Payment, error)
 }
@@ -63,7 +70,7 @@ func (r *repositories) CheckStockTicket(ctx context.Context, ticketDetailID int6
 
 // DecrementStockTicket implements Repositories.
 func (r *repositories) DecrementStockTicket(ctx context.Context, ticketDetailID int64) error {
-	ticketIDString := fmt.Sprintf("%", ticketDetailID)
+	ticketIDString := fmt.Sprintf("%d", ticketDetailID)
 	_, err := r.redisClient.Decr(ctx, ticketIDString).Result()
 	if err != nil {
 		return errors.InternalServerError("error decrement stock ticket")
@@ -72,10 +79,10 @@ func (r *repositories) DecrementStockTicket(ctx context.Context, ticketDetailID 
 }
 
 // UpsertBooking implements Repositories.
-func (r *repositories) UpsertBooking(ctx context.Context, booking entity.Booking) error {
+func (r *repositories) UpsertBooking(ctx context.Context, booking *entity.Booking) (string, error) {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return errors.InternalServerError("error starting transaction")
+		return "", errors.InternalServerError("error starting transaction")
 	}
 
 	// Lock the rows for update
@@ -84,39 +91,49 @@ func (r *repositories) UpsertBooking(ctx context.Context, booking entity.Booking
 	err = r.db.GetContext(ctx, &existingBooking, query, booking.ID)
 	if err != nil && err != sql.ErrNoRows {
 		tx.Rollback()
-		return errors.InternalServerError("error locking rows")
+		return "", errors.InternalServerError("error locking rows")
 	}
+
+	var ID string
 
 	// Perform the upsert operation
 	if err == sql.ErrNoRows {
 		// Insert new booking
-		_, err = tx.NamedExecContext(ctx, `
+		err := tx.QueryRowContext(ctx, `
 			INSERT INTO booking (id, user_id, ...) 
-			VALUES (:id, :user_id, ...)
-		`, booking)
+			VALUES (:id, :user_id, ...) RETURNING id
+		`, booking).Scan(&ID)
+		if err != nil {
+			tx.Rollback()
+			return "", errors.InternalServerError("error upserting booking")
+		}
 	} else {
 		// Update existing booking
-		_, err = tx.NamedExecContext(ctx, `
+		err := tx.QueryRowContext(ctx, `
 			UPDATE booking 
 			SET user_id = :user_id, ...
-			WHERE id = :id
-		`, booking)
+			WHERE id = :id RETURNING id
+		`, booking).Scan(&ID)
+		if err != nil {
+			tx.Rollback()
+			return "", errors.InternalServerError("error upserting booking")
+		}
 	}
 	if err != nil {
 		tx.Rollback()
-		return errors.InternalServerError("error upserting booking")
+		return "", errors.InternalServerError("error upserting booking")
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return errors.InternalServerError("error committing transaction")
+		return "", errors.InternalServerError("error committing transaction")
 	}
 
-	return nil
+	return ID, nil
 }
 
 // UpsertPayment implements Repositories.
-func (r *repositories) UpsertPayment(ctx context.Context, payment entity.Payment) error {
+func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Payment) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return errors.InternalServerError("error starting transaction")

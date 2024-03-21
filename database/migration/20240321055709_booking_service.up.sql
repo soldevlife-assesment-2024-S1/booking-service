@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS bookings (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id INT,
@@ -14,7 +16,7 @@ CREATE TABLE IF NOT EXISTS bookings (
 
 CREATE TABLE IF NOT EXISTS payments (
     id BIGINT PRIMARY KEY,
-    booking_id UUID REFERENCES booking(id),
+    booking_id UUID REFERENCES bookings(id),
     amount FLOAT,
     currency TEXT,
     status TEXT,
