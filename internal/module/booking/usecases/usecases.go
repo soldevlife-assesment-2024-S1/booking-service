@@ -26,9 +26,68 @@ type usecase struct {
 // Payment implements Usecase.
 func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
 	// 1. check if payment is valid
+
+	dataPayment, err := u.repo.FindPaymentByBookingID(ctx, payload.BookingID)
+	if err != nil {
+		return errors.InternalServerError("error repository find payment by booking id")
+	}
+
+	if dataPayment.ID == 0 {
+		return errors.NotFound("payment not found")
+	}
+
+	if dataPayment.Status != "pending" {
+		return errors.BadRequest("payment already paid / expired")
+	}
+
 	// 2. insert to db
+
+	specPayment := entity.Payment{
+		BookingID:         payload.BookingID,
+		Amount:            payload.TotalAmount,
+		Currency:          "USD",
+		Status:            "paid",
+		PaymentMethod:     payload.PaymetMethod,
+		PaymentDate:       time.Now(),
+		PaymentExpiration: dataPayment.PaymentExpiration,
+	}
+
+	err = u.repo.UpsertPayment(ctx, &specPayment)
+	if err != nil {
+		return errors.InternalServerError("error upsert payment")
+	}
+
 	// 3. publish to rabbit mq for decrement stock ticket
+
+	dataBooking, err := u.repo.FindBookingByBookingID(ctx, payload.BookingID)
+	if err != nil {
+		return errors.InternalServerError("error find booking by booking id")
+	}
+
+	messageUUID := watermill.NewUUID()
+
+	specPayload := request.DecrementStockTicket{
+		TicketDetailID: dataBooking.TicketDetailID,
+		TotalTickets:   1,
+	}
+
+	jsonPayload, err := json.Marshal(specPayload)
+	if err != nil {
+		return errors.InternalServerError("error marshal payload")
+	}
+
+	err = u.publish.Publish("decrement_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
+	if err != nil {
+		return errors.InternalServerError("error publish decrement stock ticket")
+	}
+
 	// 4. send notification to user about payment
+
+	err = u.publish.Publish("notification", message.NewMessage(watermill.NewUUID(), []byte("your payment has been paid")))
+	if err != nil {
+		return errors.InternalServerError("error publish notification")
+	}
+
 	return nil
 }
 
@@ -130,7 +189,7 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 		return errors.InternalServerError("error upsert booking")
 	}
 
-	// request to calculate total amount
+	// request to calculate total amount to ticket service
 
 	specPayment := entity.Payment{
 		BookingID:         bookingID,
@@ -207,7 +266,7 @@ func (u *usecase) ShowBookings(ctx context.Context, userID int64) (response.Book
 		return response.BookedTicket{}, errors.NotFound("booking not found")
 	}
 
-	payment, err := u.repo.FindPaymentByBookingID(ctx, userID)
+	payment, err := u.repo.FindPaymentByBookingID(ctx, bookings.ID)
 	if err != nil {
 		return response.BookedTicket{}, errors.InternalServerError("error find payment by booking id")
 	}

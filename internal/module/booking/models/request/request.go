@@ -9,7 +9,7 @@ type BookTicket struct {
 }
 
 type Payment struct {
-	BookingID    int64   `json:"booking_id" validate:"required"`
+	BookingID    string  `json:"booking_id" validate:"required"`
 	TotalAmount  float64 `json:"total_amount" validate:"required"`
 	PaymetMethod string  `json:"payment_method" validate:"required"`
 }
