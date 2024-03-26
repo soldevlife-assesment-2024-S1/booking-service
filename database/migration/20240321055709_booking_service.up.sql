@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS bookings (
     full_name TEXT,
     personal_id TEXT,
     booking_date TIMESTAMP,
-    booking_expiration TIMESTAMP,
     created_at TIMESTAMP,
     updated_at TIMESTAMP NULL,
     deleted_at TIMESTAMP NULL

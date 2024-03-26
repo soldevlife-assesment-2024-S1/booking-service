@@ -42,7 +42,6 @@ type Repositories interface {
 	UpsertBooking(ctx context.Context, booking *entity.Booking) (id string, err error)
 	UpsertPayment(ctx context.Context, payment *entity.Payment) error
 	FindBookingByUserID(ctx context.Context, userID int64) (entity.Booking, error)
-	FindBookingByBookingID(ctx context.Context, bookingID string) (entity.Booking, error)
 	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
 }
 

@@ -6,21 +6,23 @@ import (
 	"booking-service/internal/module/booking/models/response"
 	"booking-service/internal/module/booking/repositories"
 	"booking-service/internal/pkg/errors"
+	"booking-service/internal/pkg/helpers"
 	"booking-service/internal/pkg/log"
+	"booking-service/internal/pkg/scheduler"
 	"context"
 	"encoding/json"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/reugn/go-quartz/quartz"
+	"github.com/hibiken/asynq"
 )
 
 type usecase struct {
-	repo     repositories.Repositories
-	log      log.Logger
-	publish  message.Publisher
-	jobQueue quartz.JobQueue
+	repo            repositories.Repositories
+	log             log.Logger
+	publish         message.Publisher
+	clientScheduler *asynq.Client
 }
 
 // Payment implements Usecase.
@@ -97,13 +99,15 @@ type Usecase interface {
 	ConsumeBookTicketQueue(ctx context.Context, payload *request.BookTicket) error
 	ShowBookings(ctx context.Context, userID int64) (response.BookedTicket, error)
 	Payment(ctx context.Context, payload *request.Payment) error
+	SetPaymentExpired(ctx context.Context, payload *request.PaymentExpiration) error
 }
 
-func New(repo repositories.Repositories, log log.Logger, publish message.Publisher) Usecase {
+func New(repo repositories.Repositories, log log.Logger, publish message.Publisher, clientScheduler *asynq.Client) Usecase {
 	return &usecase{
-		repo:    repo,
-		log:     log,
-		publish: publish,
+		repo:            repo,
+		log:             log,
+		publish:         publish,
+		clientScheduler: clientScheduler,
 	}
 }
 
@@ -169,19 +173,17 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	// 3. set booking expired time and payment expired time
 
-	bookExpiredAt := time.Now().Add(time.Hour * 24 * 3)
-	paymentExpiredAt := time.Now().Add(time.Hour * 24 * 1)
+	paymentExpiredAt := time.Now().Add(time.Minute * 30)
 
 	// 5. insert to db (lock table) or use optimistic lock
 
 	specBooking := entity.Booking{
-		UserID:            payload.UserID,
-		TicketDetailID:    payload.TicketDetailID,
-		TotalTickets:      payload.TotalTickets,
-		FullName:          payload.FullName,
-		PersonalID:        payload.PersonalID,
-		BookingDate:       time.Now(),
-		BookingExpiration: bookExpiredAt,
+		UserID:         payload.UserID,
+		TicketDetailID: payload.TicketDetailID,
+		TotalTickets:   payload.TotalTickets,
+		FullName:       payload.FullName,
+		PersonalID:     payload.PersonalID,
+		BookingDate:    time.Now(),
 	}
 
 	bookingID, err := u.repo.UpsertBooking(ctx, &specBooking)
@@ -208,23 +210,25 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	// 6. start job to check payment expired time
 
-	// scheduledJob := quartz.NewJobDetail(func(ctx context.Context) {
-	// 	// 1. find payment by booking id
-	// 	payment, err := u.repo.FindPaymentByBookingID(ctx, specPayment.ID)
-	// 	if err != nil {
-	// 		u.log.Error(ctx, "error find payment by booking id", err)
-	// 	}
+	specPaymentExpiration := request.PaymentExpiration{
+		BookingID:      bookingID,
+		TicketDetailID: payload.TicketDetailID,
+		TotalTickets:   payload.TotalTickets,
+	}
 
-	// 	// 2. if payment status is pending and payment expired time is now
-	// 	if payment.Status == "pending" && payment.PaymentExpiration.Before(time.Now()) {
-	// 		// 3. update payment status to expired
-	// 		payment.Status = "expired"
-	// 		err = u.repo.UpsertPayment(ctx, &payment)
-	// 		if err != nil {
-	// 			u.log.Error(ctx, "error upsert payment", err)
-	// 		}
-	// 	}
-	// }, quartz.NewJobKey("check_payment_expired_time"))
+	jsonPayloadScheduler, err := json.Marshal(specPaymentExpiration)
+	if err != nil {
+		return errors.InternalServerError("error marshal payload")
+	}
+
+	expiredAt := helpers.DurationCalculation(paymentExpiredAt)
+
+	taskPaymentExpiredAt := asynq.NewTask(scheduler.TypeSetPaymentExpired, jsonPayloadScheduler, asynq.MaxRetry(3), asynq.Timeout(expiredAt))
+
+	_, err = u.clientScheduler.Enqueue(taskPaymentExpiredAt)
+	if err != nil {
+		return errors.InternalServerError("error enqueue task payment expired")
+	}
 
 	// 7. publish to rabbit mq for decrement stock ticket to ticket service
 
@@ -287,4 +291,47 @@ func (u *usecase) ShowBookings(ctx context.Context, userID int64) (response.Book
 	}
 	// 3. return booking
 	return response, nil
+}
+
+func (u *usecase) SetPaymentExpired(ctx context.Context, payload *request.PaymentExpiration) error {
+	// 1. find payment by booking id
+	payment, err := u.repo.FindPaymentByBookingID(ctx, payload.BookingID)
+	if err != nil {
+		u.log.Error(ctx, "error find payment by booking id", err)
+		return err
+	}
+
+	// 2. if payment status is pending and payment expired time is now
+	if payment.Status == "pending" && payment.PaymentExpiration.Before(time.Now()) {
+		// 3. update payment status to expired
+		payment.Status = "expired"
+		err = u.repo.UpsertPayment(ctx, &payment)
+		if err != nil {
+			u.log.Error(ctx, "error upsert payment", err)
+			return err
+		}
+
+		// 4. publish to rabbit mq for increment stock ticket to ticket service
+
+		messageUUID := watermill.NewUUID()
+
+		specPayload := request.DecrementStockTicket{
+			TicketDetailID: payload.TicketDetailID,
+			TotalTickets:   payload.TotalTickets,
+		}
+
+		jsonPayload, err := json.Marshal(specPayload)
+		if err != nil {
+			return errors.InternalServerError("error marshal payload")
+		}
+
+		err = u.publish.Publish("increment_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
+
+		if err != nil {
+			u.log.Error(ctx, "error publish decrement stock ticket", err)
+			return err
+		}
+	}
+
+	return nil
 }

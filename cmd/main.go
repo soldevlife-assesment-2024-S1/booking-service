@@ -12,6 +12,7 @@ import (
 	"booking-service/internal/pkg/messagestream"
 	"booking-service/internal/pkg/middleware"
 	"booking-service/internal/pkg/redis"
+	"booking-service/internal/pkg/scheduler"
 	router "booking-service/internal/route"
 	"context"
 	"log"
@@ -19,6 +20,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"github.com/hibiken/asynq"
 )
 
 func main() {
@@ -70,17 +72,29 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 		logger.Error(ctx, "Failed to create publisher", err)
 	}
 
-	ticketRepo := repositories.New(db, logger, httpClient, redis)
-	ticketUsecase := usecases.New(ticketRepo, logger, publisher)
+	typeTaskSetPaymentExpired := scheduler.TypeSetPaymentExpired
+
+	// init scheduler
+	scheduler := scheduler.Scheduler{
+		Log: logger,
+	}
+
+	clientScheduler := scheduler.InitClient(&cfg.Redis)
+
+	// start monitoring
+	go scheduler.StartMonitoring(&cfg.Redis)
+
+	bookingRepo := repositories.New(db, logger, httpClient, redis)
+	bookingUsecase := usecases.New(bookingRepo, logger, publisher, clientScheduler)
 	middleware := middleware.Middleware{
-		Repo: ticketRepo,
+		Repo: bookingRepo,
 	}
 
 	validator := validator.New()
 	bookingHandler := handler.BookingHandler{
 		Log:       logger,
 		Validator: validator,
-		Usecase:   ticketUsecase,
+		Usecase:   bookingUsecase,
 		Publish:   publisher,
 	}
 
@@ -93,6 +107,15 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 
 	messageRouters = append(messageRouters, consumeBookingQueueRouter)
 
+	// register task handler for scheduler
+	var taskTypes []string
+	var handlerFuncs []func(ctx context.Context, t *asynq.Task) error
+
+	taskTypes = append(taskTypes, typeTaskSetPaymentExpired)
+	handlerFuncs = append(handlerFuncs, bookingHandler.SetPaymentExpired)
+	go scheduler.StartHandler(&cfg.Redis, taskTypes, handlerFuncs)
+
+	// setup http server
 	serverHttp := http.SetupHttpEngine()
 
 	r := router.Initialize(serverHttp, &bookingHandler, &middleware)
