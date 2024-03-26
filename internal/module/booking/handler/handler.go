@@ -6,12 +6,14 @@ import (
 	"booking-service/internal/pkg/errors"
 	"booking-service/internal/pkg/helpers"
 	"booking-service/internal/pkg/log"
+	"context"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-json"
 	"github.com/gofiber/fiber/v2"
+	"github.com/hibiken/asynq"
 )
 
 type BookingHandler struct {
@@ -123,4 +125,26 @@ func (h *BookingHandler) ShowBookings(ctx *fiber.Ctx) error {
 	}
 
 	return helpers.RespSuccess(ctx, h.Log, resp, "success show bookings")
+}
+
+func (h *BookingHandler) SetPaymentExpired(ctx context.Context, t *asynq.Task) error {
+	var req request.PaymentExpiration
+	if err := json.Unmarshal(t.Payload(), &req); err != nil {
+		h.Log.Error(ctx, "error unmarshal message", err)
+		return err
+	}
+
+	if err := h.Validator.Struct(req); err != nil {
+		h.Log.Error(ctx, "error validate request", err)
+		return err
+	}
+
+	// call usecase to set payment expired
+	err := h.Usecase.SetPaymentExpired(ctx, &req)
+	if err != nil {
+		h.Log.Error(ctx, "error set payment expired", err)
+		return err
+	}
+
+	return nil
 }

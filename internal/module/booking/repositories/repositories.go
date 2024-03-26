@@ -42,7 +42,7 @@ type Repositories interface {
 	UpsertBooking(ctx context.Context, booking *entity.Booking) (id string, err error)
 	UpsertPayment(ctx context.Context, payment *entity.Payment) error
 	FindBookingByUserID(ctx context.Context, userID int64) (entity.Booking, error)
-	FindPaymentByBookingID(ctx context.Context, bookingID int64) (entity.Payment, error)
+	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
 }
 
 func New(db *sqlx.DB, log log.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client) Repositories {
@@ -191,7 +191,7 @@ func (r *repositories) FindBookingByUserID(ctx context.Context, userID int64) (e
 }
 
 // FindPaymentByBookingID implements Repositories.
-func (r *repositories) FindPaymentByBookingID(ctx context.Context, bookingID int64) (entity.Payment, error) {
+func (r *repositories) FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error) {
 	query := `SELECT * FROM payment WHERE booking_id = ?`
 	var payment entity.Payment
 	err := r.db.Get(&payment, query, bookingID)

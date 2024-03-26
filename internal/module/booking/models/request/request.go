@@ -24,3 +24,9 @@ type DecrementStockTicket struct {
 	TicketDetailID int64 `json:"ticket_detail_id" validate:"required"`
 	TotalTickets   int   `json:"total_tickets" validate:"required"`
 }
+
+type PaymentExpiration struct {
+	BookingID      string `json:"booking_id" validate:"required"`
+	TicketDetailID int64  `json:"ticket_detail_id" validate:"required"`
+	TotalTickets   int    `json:"total_tickets" validate:"required"`
+}
