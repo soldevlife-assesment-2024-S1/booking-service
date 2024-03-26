@@ -25,8 +25,22 @@ type repositories struct {
 	redisClient    *redis.Client
 }
 
+// FindBookingByID implements Repositories.
+func (r *repositories) FindBookingByID(ctx context.Context, bookingID string) (entity.Booking, error) {
+	query := `SELECT * FROM booking WHERE id = ?`
+	var booking entity.Booking
+	err := r.db.Get(&booking, query, bookingID)
+	if err == sql.ErrNoRows {
+		return entity.Booking{}, nil
+	}
+	if err != nil {
+		return entity.Booking{}, errors.InternalServerError("error find booking by booking id")
+	}
+	return booking, nil
+}
+
 // InquiryTicketAmount implements Repositories.
-func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID int64) (int64, error) {
+func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID int64) (float64, error) {
 	// implement http call to ticket service
 	panic("unimplemented")
 }
@@ -34,7 +48,7 @@ func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID i
 type Repositories interface {
 	// http
 	ValidateToken(ctx context.Context, token string) (response.UserServiceValidate, error)
-	InquiryTicketAmount(ctx context.Context, ticketDetailID int64) (int64, error)
+	InquiryTicketAmount(ctx context.Context, ticketDetailID int64) (float64, error)
 	// redis
 	CheckStockTicket(ctx context.Context, ticketDetailID int64) (int64, error)
 	DecrementStockTicket(ctx context.Context, ticketDetailID int64) error
@@ -42,6 +56,7 @@ type Repositories interface {
 	UpsertBooking(ctx context.Context, booking *entity.Booking) (id string, err error)
 	UpsertPayment(ctx context.Context, payment *entity.Payment) error
 	FindBookingByUserID(ctx context.Context, userID int64) (entity.Booking, error)
+	FindBookingByID(ctx context.Context, bookingID string) (entity.Booking, error)
 	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
 }
 

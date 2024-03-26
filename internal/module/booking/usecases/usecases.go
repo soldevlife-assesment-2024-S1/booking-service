@@ -61,7 +61,7 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
 
 	// 3. publish to rabbit mq for decrement stock ticket
 
-	dataBooking, err := u.repo.FindBookingByBookingID(ctx, payload.BookingID)
+	dataBooking, err := u.repo.FindBookingByID(ctx, payload.BookingID)
 	if err != nil {
 		return errors.InternalServerError("error find booking by booking id")
 	}
@@ -193,9 +193,14 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	// request to calculate total amount to ticket service
 
+	amount, err := u.repo.InquiryTicketAmount(ctx, payload.TicketDetailID)
+	if err != nil {
+		return errors.InternalServerError("error inquiry ticket amount")
+	}
+
 	specPayment := entity.Payment{
 		BookingID:         bookingID,
-		Amount:            0,
+		Amount:            amount,
 		Currency:          "IDR",
 		Status:            "pending",
 		PaymentMethod:     "",
