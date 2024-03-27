@@ -24,7 +24,6 @@ type BookingHandler struct {
 }
 
 func (h *BookingHandler) BookTicket(ctx *fiber.Ctx) error {
-	// TODO: set booking only sabtu / minggu
 	var req request.BookTicket
 	if err := ctx.BodyParser(&req); err != nil {
 		h.Log.Error(ctx.Context(), "error parse request", err)

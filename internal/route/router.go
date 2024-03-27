@@ -19,6 +19,7 @@ func Initialize(app *fiber.App, handlerBooking *handler.BookingHandler, m *middl
 	// public routes
 	v1 := Api.Group("/v1")
 	v1.Get("/bookings", m.ValidateToken, handlerBooking.ShowBookings)
+	// v1.Post("/book", m.ValidateToken, m.CheckIsWeekend, handlerBooking.BookTicket)
 	v1.Post("/book", m.ValidateToken, handlerBooking.BookTicket)
 	v1.Post("/payment", m.ValidateToken, handlerBooking.Payment)
 

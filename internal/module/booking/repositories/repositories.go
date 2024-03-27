@@ -80,6 +80,7 @@ type Repositories interface {
 	// redis
 	CheckStockTicket(ctx context.Context, ticketDetailID int64) (int64, error)
 	DecrementStockTicket(ctx context.Context, ticketDetailID int64) error
+	IncrementStockTicket(ctx context.Context, ticketDetailID int64) error
 	// db
 	UpsertBooking(ctx context.Context, booking *entity.Booking) (id string, err error)
 	UpsertPayment(ctx context.Context, payment *entity.Payment) error
@@ -163,6 +164,16 @@ func (r *repositories) DecrementStockTicket(ctx context.Context, ticketDetailID 
 	_, err := r.redisClient.Decr(ctx, ticketIDString).Result()
 	if err != nil {
 		return errors.InternalServerError("error decrement stock ticket")
+	}
+	return nil
+}
+
+// IncrementStockTicket implements Repositories.
+func (r *repositories) IncrementStockTicket(ctx context.Context, ticketDetailID int64) error {
+	ticketIDString := fmt.Sprintf("%d", ticketDetailID)
+	_, err := r.redisClient.Incr(ctx, ticketIDString).Result()
+	if err != nil {
+		return errors.InternalServerError("error increment stock ticket")
 	}
 	return nil
 }

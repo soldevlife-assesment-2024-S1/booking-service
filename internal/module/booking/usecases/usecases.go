@@ -332,6 +332,11 @@ func (u *usecase) SetPaymentExpired(ctx context.Context, payload *request.Paymen
 			return errors.InternalServerError("error marshal payload")
 		}
 
+		err = u.repo.IncrementStockTicket(ctx, payload.TicketDetailID)
+		if err != nil {
+			return errors.InternalServerError("error increment stock ticket")
+		}
+
 		err = u.publish.Publish("increment_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
 
 		if err != nil {

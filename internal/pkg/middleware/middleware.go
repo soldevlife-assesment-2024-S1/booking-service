@@ -6,6 +6,7 @@ import (
 	"booking-service/internal/pkg/helpers"
 	log "booking-service/internal/pkg/log"
 	"go/token"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -41,4 +42,16 @@ func (m *Middleware) ValidateToken(ctx *fiber.Ctx) error {
 	ctx.Locals("user_id", resp.UserID)
 
 	return ctx.Next()
+}
+
+func (m *Middleware) CheckIsWeekend(ctx *fiber.Ctx) error {
+	// get current day
+	day := time.Now().Weekday().String()
+
+	if day == "Saturday" || day == "Sunday" {
+		return ctx.Next()
+	}
+
+	m.Log.Error(ctx.Context(), "error validate booking day", errors.BadRequest("error validate booking day, only can book on weekend"))
+	return helpers.RespError(ctx, m.Log, errors.BadRequest("error validate booking day, only can book on weekend"))
 }
