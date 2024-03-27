@@ -44,7 +44,6 @@ func (r *repositories) FindBookingByID(ctx context.Context, bookingID string) (e
 // InquiryTicketAmount implements Repositories.
 func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID int64, totalTicket int) (float64, error) {
 	url := fmt.Sprintf("http://%s:%s/api/private/ticket/inquiry?ticket_detail_id=%d&total_ticket=%d", r.cfgTicketService.Host, r.cfgTicketService.Port, ticketDetailID, totalTicket)
-	fmt.Println(url)
 
 	resp, err := r.httpClient.Get(url)
 	if err != nil {
@@ -160,7 +159,6 @@ func (r *repositories) CheckStockTicket(ctx context.Context, ticketDetailID int6
 
 // DecrementStockTicket implements Repositories.
 func (r *repositories) DecrementStockTicket(ctx context.Context, ticketDetailID int64) error {
-	ctx = context.Background()
 	ticketIDString := fmt.Sprintf("%d", ticketDetailID)
 	_, err := r.redisClient.Decr(ctx, ticketIDString).Result()
 	if err != nil {
@@ -171,7 +169,6 @@ func (r *repositories) DecrementStockTicket(ctx context.Context, ticketDetailID 
 
 // UpsertBooking implements Repositories.
 func (r *repositories) UpsertBooking(ctx context.Context, booking *entity.Booking) (string, error) {
-	ctx = context.Background()
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return "", errors.InternalServerError("error starting transaction")
@@ -192,9 +189,9 @@ func (r *repositories) UpsertBooking(ctx context.Context, booking *entity.Bookin
 	if err == sql.ErrNoRows {
 		// Insert new booking
 		queryInsert := fmt.Sprintf(`
-			INSERT INTO bookings (id, user_id, ticket_detail_id, total_tickets, full_name, personal_id, booking_date) 
-			VALUES ('%s', %d, %d, %d, '%s', '%s', '%s') RETURNING id
-		`, booking.ID, booking.UserID, booking.TicketDetailID, booking.TotalTickets, booking.FullName, booking.PersonalID, booking.BookingDate.Format("2006-01-02 15:04:05"))
+			INSERT INTO bookings (user_id, ticket_detail_id, total_tickets, full_name, personal_id, booking_date) 
+			VALUES (%d, %d, %d, '%s', '%s', '%s') RETURNING id
+		`, booking.UserID, booking.TicketDetailID, booking.TotalTickets, booking.FullName, booking.PersonalID, booking.BookingDate.Format("2006-01-02 15:04:05"))
 
 		err := tx.QueryRowContext(ctx,
 			queryInsert).Scan(&ID)
@@ -226,10 +223,8 @@ func (r *repositories) UpsertBooking(ctx context.Context, booking *entity.Bookin
 
 // UpsertPayment implements Repositories.
 func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Payment) error {
-	ctx = context.Background()
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		fmt.Println("err msg 1", err)
 		return errors.InternalServerError("error starting transaction")
 	}
 
@@ -238,7 +233,6 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 	var existingPayment entity.Payment
 	err = r.db.GetContext(ctx, &existingPayment, query, payment.BookingID)
 	if err != nil && err != sql.ErrNoRows {
-		fmt.Println("err msg 1.5", err)
 		tx.Rollback()
 		return errors.InternalServerError("error locking rows")
 	}
@@ -254,7 +248,6 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 		`, payment.BookingID.String(), payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.PaymentDate.Format("2006-01-02 15:04:05"), payment.PaymentExpiration.Format("2006-01-02 15:04:05"))
 		err := tx.QueryRowContext(ctx, queryInsert).Scan(&ID)
 		if err != nil {
-			fmt.Println("err msg 2", err)
 			tx.Rollback()
 			return errors.InternalServerError("error upserting payment")
 		}
@@ -267,7 +260,6 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 		`, payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.PaymentDate.Format("2006-01-02 15:04:05"), payment.PaymentExpiration.Format("2006-01-02 15:04:05"), payment.BookingID.String())
 		err := tx.QueryRowContext(ctx, queryUpdate).Scan(&ID)
 		if err != nil {
-			fmt.Println("err msg 3", err)
 			tx.Rollback()
 			return errors.InternalServerError("error upserting payment")
 		}
@@ -275,7 +267,6 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 
 	err = tx.Commit()
 	if err != nil {
-		fmt.Println("err msg 4", err)
 		return errors.InternalServerError("error committing transaction")
 	}
 

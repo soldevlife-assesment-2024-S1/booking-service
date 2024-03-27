@@ -29,11 +29,13 @@ func (s *Scheduler) StartMonitoring(cfg *config.RedisConfig) {
 	})
 
 	// Note: We need the tailing slash when using net/http.ServeMux.
-	http.Handle(h.RootPath()+"/scheduler", h)
+	http.Handle(h.RootPath()+"/", h)
 
 	// Go to http://localhost:8080/monitoring to see asynqmon homepage.
 	err := http.ListenAndServe(":8080", nil)
-	s.Log.Error(ctx, "error start monitoring scheduler", err)
+	if err != nil {
+		s.Log.Error(ctx, "error start monitoring scheduler", err)
+	}
 }
 
 func (s *Scheduler) InitClient(cfg *config.RedisConfig) *asynq.Client {

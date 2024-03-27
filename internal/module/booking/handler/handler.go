@@ -24,6 +24,7 @@ type BookingHandler struct {
 }
 
 func (h *BookingHandler) BookTicket(ctx *fiber.Ctx) error {
+	// TODO: set booking only sabtu / minggu
 	var req request.BookTicket
 	if err := ctx.BodyParser(&req); err != nil {
 		h.Log.Error(ctx.Context(), "error parse request", err)
@@ -71,8 +72,10 @@ func (h *BookingHandler) ConsumeBookingQueue(msg *message.Message) error {
 		return err
 	}
 
+	ctx := context.Background()
+
 	// call usecase to consume booking queue
-	err := h.Usecase.ConsumeBookTicketQueue(msg.Context(), &req)
+	err := h.Usecase.ConsumeBookTicketQueue(ctx, &req)
 	if err != nil {
 		// publish to poison queue
 		reqPoisoned := request.PoisonedQueue{

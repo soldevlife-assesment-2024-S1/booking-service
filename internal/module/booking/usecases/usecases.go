@@ -117,7 +117,6 @@ func New(repo repositories.Repositories, log log.Logger, publish message.Publish
 
 func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, userID int64) error {
 	// scenario 1: booking satu satu
-	// TODO: check seat stock ticket
 	stock, err := u.repo.CheckStockTicket(ctx, payload.TicketDetailID)
 	if err != nil {
 		return errors.InternalServerError("error check stock ticket")
@@ -126,8 +125,6 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 	if stock <= 0 {
 		return errors.BadRequest("stock ticket is empty")
 	}
-
-	// TODO: check if user already booked more than 2 tickets
 
 	booking, err := u.repo.FindBookingByUserID(ctx, userID)
 	if err != nil {
@@ -138,7 +135,6 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 		return errors.BadRequest("user already booked more than 2 tickets")
 	}
 
-	// TODO: Book ticket
 	// 1. send the queue to rabbit mq
 
 	messageUUID := watermill.NewUUID()
@@ -148,8 +144,6 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 	}
 
 	u.publish.Publish("book_ticket", message.NewMessage(messageUUID, jsonPayload))
-
-	// TODO: send notification to user that ticket has been queued
 
 	u.publish.Publish("notification", message.NewMessage(watermill.NewUUID(), []byte("your ticket has been queued")))
 
@@ -211,7 +205,6 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 		Currency:          "IDR",
 		Status:            "pending",
 		PaymentMethod:     "",
-		PaymentDate:       time.Now(),
 		PaymentExpiration: paymentExpiredAt,
 	}
 
@@ -235,9 +228,11 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	expiredAt := helpers.DurationCalculation(paymentExpiredAt)
 
+	fmt.Println(expiredAt)
+
 	taskPaymentExpiredAt := asynq.NewTask(scheduler.TypeSetPaymentExpired, jsonPayloadScheduler, asynq.MaxRetry(3), asynq.Timeout(expiredAt))
 
-	_, err = u.clientScheduler.Enqueue(taskPaymentExpiredAt)
+	_, err = u.clientScheduler.Enqueue(taskPaymentExpiredAt, asynq.ProcessIn(expiredAt))
 	if err != nil {
 		return errors.InternalServerError("error enqueue task payment expired")
 	}
@@ -314,7 +309,7 @@ func (u *usecase) SetPaymentExpired(ctx context.Context, payload *request.Paymen
 	}
 
 	// 2. if payment status is pending and payment expired time is now
-	if payment.Status == "pending" && payment.PaymentExpiration.Before(time.Now()) {
+	if payment.Status == "pending" {
 		// 3. update payment status to expired
 		payment.Status = "expired"
 		err = u.repo.UpsertPayment(ctx, &payment)

@@ -8,8 +8,22 @@ CREATE TABLE IF NOT EXISTS bookings (
     full_name TEXT,
     personal_id TEXT,
     booking_date TIMESTAMP,
-    created_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL,
     deleted_at TIMESTAMP NULL
 );
 
+
+CREATE TABLE IF NOT EXISTS payments (
+    id BIGINT PRIMARY KEY,
+    booking_id UUID REFERENCES bookings(id),
+    amount FLOAT,
+    currency TEXT,
+    status TEXT,
+    payment_method TEXT,
+    payment_date TIMESTAMP,
+    payment_expiration TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL,
+    deleted_at TIMESTAMP NULL
+);
