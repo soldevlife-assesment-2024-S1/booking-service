@@ -2,9 +2,9 @@ package middleware
 
 import (
 	"booking-service/internal/module/booking/repositories"
+	"booking-service/internal/pkg/errors"
 	"booking-service/internal/pkg/helpers"
 	log "booking-service/internal/pkg/log"
-	"errors"
 	"go/token"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,10 +19,8 @@ func (m *Middleware) ValidateToken(ctx *fiber.Ctx) error {
 	// get token from header
 	auth := ctx.Get("Authorization")
 	if auth == "" {
-		m.Log.Error(ctx.Context(), "error get token from header", errors.New("error get token from header"))
-		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message": "Unauthorized",
-		})
+		m.Log.Error(ctx.Context(), "error get token from header", errors.UnauthorizedError("error get token from header"))
+		return helpers.RespError(ctx, m.Log, errors.UnauthorizedError("error get token from header"))
 	}
 
 	// grab token (Bearer token) from header 7 is the length of "Bearer "
@@ -32,12 +30,12 @@ func (m *Middleware) ValidateToken(ctx *fiber.Ctx) error {
 	resp, err := m.Repo.ValidateToken(ctx.Context(), token)
 	if err != nil {
 		m.Log.Error(ctx.Context(), "error validate token", err)
-		return helpers.RespError(ctx, m.Log, err)
+		return helpers.RespError(ctx, m.Log, errors.UnauthorizedError("error validate token"))
 	}
 
 	if !resp.IsValid {
-		m.Log.Error(ctx.Context(), "error validate token", errors.New("error validate token"))
-		return helpers.RespError(ctx, m.Log, errors.New("error validate token"))
+		m.Log.Error(ctx.Context(), "error validate token", errors.UnauthorizedError("error validate token"))
+		return helpers.RespError(ctx, m.Log, errors.UnauthorizedError("error validate token"))
 	}
 
 	ctx.Locals("user_id", resp.UserID)

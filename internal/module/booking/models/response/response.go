@@ -1,8 +1,13 @@
 package response
 
 type UserServiceValidate struct {
-	IsValid bool `json:"is_valid"`
-	UserID  int  `json:"user_id"`
+	IsValid bool  `json:"is_valid"`
+	UserID  int64 `json:"user_id"`
+}
+
+type BaseResponse struct {
+	Meta interface{} `json:"meta"`
+	Data interface{} `json:"data"`
 }
 
 type BookedTicket struct {
@@ -14,4 +19,9 @@ type BookedTicket struct {
 	TotalAmount   float64 `json:"total_amount"`
 	PaymentMethod string  `json:"payment_method"`
 	Status        string  `json:"status"`
+}
+
+type InquiryTicketAmount struct {
+	TotalTicket int     `json:"total_ticket"`
+	TotalAmount float64 `json:"total_amount"`
 }

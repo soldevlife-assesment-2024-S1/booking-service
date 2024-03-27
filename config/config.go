@@ -14,7 +14,13 @@ type Config struct {
 	Logger        LoggerConfig
 	MessageStream MessageStreamConfig
 	UserService   UserServiceConfig
+	TicketService TicketServiceConfig
 	Database      DatabaseConfig
+}
+
+type TicketServiceConfig struct {
+	Host string `envconfig:"ticket_service_host"`
+	Port string `envconfig:"ticket_service_port"`
 }
 
 type UserServiceConfig struct {

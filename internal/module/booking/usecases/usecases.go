@@ -11,10 +11,12 @@ import (
 	"booking-service/internal/pkg/scheduler"
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 )
 
@@ -44,8 +46,10 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
 
 	// 2. insert to db
 
+	bookingID := uuid.MustParse(payload.BookingID)
+
 	specPayment := entity.Payment{
-		BookingID:         payload.BookingID,
+		BookingID:         bookingID,
 		Amount:            payload.TotalAmount,
 		Currency:          "USD",
 		Status:            "paid",
@@ -188,18 +192,21 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	bookingID, err := u.repo.UpsertBooking(ctx, &specBooking)
 	if err != nil {
+		fmt.Println(err)
 		return errors.InternalServerError("error upsert booking")
 	}
 
 	// request to calculate total amount to ticket service
 
-	amount, err := u.repo.InquiryTicketAmount(ctx, payload.TicketDetailID)
+	amount, err := u.repo.InquiryTicketAmount(ctx, payload.TicketDetailID, payload.TotalTickets)
 	if err != nil {
 		return errors.InternalServerError("error inquiry ticket amount")
 	}
 
+	bookingIDuuid := uuid.MustParse(bookingID)
+
 	specPayment := entity.Payment{
-		BookingID:         bookingID,
+		BookingID:         bookingIDuuid,
 		Amount:            amount,
 		Currency:          "IDR",
 		Status:            "pending",
@@ -271,11 +278,11 @@ func (u *usecase) ShowBookings(ctx context.Context, userID int64) (response.Book
 		return response.BookedTicket{}, errors.InternalServerError("error find booking by user id")
 	}
 
-	if bookings.ID == "" {
+	if bookings.ID.String() == "" {
 		return response.BookedTicket{}, errors.NotFound("booking not found")
 	}
 
-	payment, err := u.repo.FindPaymentByBookingID(ctx, bookings.ID)
+	payment, err := u.repo.FindPaymentByBookingID(ctx, bookings.ID.String())
 	if err != nil {
 		return response.BookedTicket{}, errors.InternalServerError("error find payment by booking id")
 	}
@@ -285,7 +292,7 @@ func (u *usecase) ShowBookings(ctx context.Context, userID int64) (response.Book
 	}
 
 	response := response.BookedTicket{
-		ID:            bookings.ID,
+		ID:            bookings.ID.String(),
 		FullName:      bookings.FullName,
 		PersonalID:    bookings.PersonalID,
 		BookingDate:   bookings.BookingDate.Format("2006-01-02 15:04:05"),

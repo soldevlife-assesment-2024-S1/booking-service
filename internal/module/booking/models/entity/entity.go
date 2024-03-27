@@ -3,10 +3,12 @@ package entity
 import (
 	"database/sql"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Booking struct {
-	ID             string       `db:"id"` // UUID
+	ID             uuid.UUID    `db:"id"` // UUID
 	UserID         int64        `db:"user_id"`
 	TicketDetailID int64        `db:"ticket_detail_id"`
 	TotalTickets   int          `db:"total_tickets"`
@@ -20,7 +22,7 @@ type Booking struct {
 
 type Payment struct {
 	ID                int64        `db:"id"`
-	BookingID         string       `db:"booking_id"`
+	BookingID         uuid.UUID    `db:"booking_id"`
 	Amount            float64      `db:"amount"`
 	Currency          string       `db:"currency"`
 	Status            string       `db:"status"`

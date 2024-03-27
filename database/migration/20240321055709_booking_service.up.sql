@@ -13,16 +13,3 @@ CREATE TABLE IF NOT EXISTS bookings (
     deleted_at TIMESTAMP NULL
 );
 
-CREATE TABLE IF NOT EXISTS payments (
-    id BIGINT PRIMARY KEY,
-    booking_id UUID REFERENCES bookings(id),
-    amount FLOAT,
-    currency TEXT,
-    status TEXT,
-    payment_method TEXT,
-    payment_date TIMESTAMP,
-    payment_expiration TIMESTAMP,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP NULL,
-    deleted_at TIMESTAMP NULL
-);
