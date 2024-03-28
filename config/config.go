@@ -8,14 +8,20 @@ import (
 )
 
 type Config struct {
-	Redis         RedisConfig
-	HttpServer    HttpServerConfig
-	HttpClient    HttpClientConfig
-	Logger        LoggerConfig
-	MessageStream MessageStreamConfig
-	UserService   UserServiceConfig
-	TicketService TicketServiceConfig
-	Database      DatabaseConfig
+	Redis            RedisConfig
+	HttpServer       HttpServerConfig
+	HttpClient       HttpClientConfig
+	Logger           LoggerConfig
+	MessageStream    MessageStreamConfig
+	UserService      UserServiceConfig
+	SchedulerService SchedulerServiceConfig
+	TicketService    TicketServiceConfig
+	Database         DatabaseConfig
+}
+
+type SchedulerServiceConfig struct {
+	Host string `envconfig:"scheduler_service_host"`
+	Port string `envconfig:"scheduler_service_port"`
 }
 
 type TicketServiceConfig struct {

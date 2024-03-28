@@ -6,6 +6,7 @@ import (
 	"booking-service/internal/module/booking/models/response"
 	"booking-service/internal/pkg/errors"
 	"booking-service/internal/pkg/log"
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -19,17 +20,46 @@ import (
 )
 
 type repositories struct {
-	db               *sqlx.DB
-	log              log.Logger
-	httpClient       *circuit.HTTPClient
-	cfgTicketService *config.TicketServiceConfig
-	cfgUserService   *config.UserServiceConfig
-	redisClient      *redis.Client
+	db                  *sqlx.DB
+	log                 log.Logger
+	httpClient          *circuit.HTTPClient
+	cfgTicketService    *config.TicketServiceConfig
+	cfgUserService      *config.UserServiceConfig
+	cfgSchedulerService *config.SchedulerServiceConfig
+	redisClient         *redis.Client
+}
+
+// DeleteTaskScheduler implements Repositories.
+func (r *repositories) DeleteTaskScheduler(ctx context.Context, taskID string) error {
+	url := fmt.Sprintf("http://%s:%s/monitoring/api/queues/default/scheduled_tasks:batch_delete", r.cfgSchedulerService.Host, r.cfgSchedulerService.Port)
+	payload := map[string]interface{}{
+		"task_ids": []string{taskID},
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println(err)
+		return errors.InternalServerError("error delete task scheduler")
+	}
+	resp, err := r.httpClient.Post(url, "application/json", bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		fmt.Println(err)
+		return errors.InternalServerError("error delete task scheduler")
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		fmt.Println(resp)
+		r.log.Error(ctx, "Delete task scheduler failed", resp.StatusCode)
+		return errors.BadRequest("Delete task scheduler failed")
+	}
+
+	return nil
 }
 
 // FindBookingByID implements Repositories.
 func (r *repositories) FindBookingByID(ctx context.Context, bookingID string) (entity.Booking, error) {
-	query := `SELECT * FROM booking WHERE id = ?`
+	query := `SELECT * FROM bookings WHERE id = $1`
 	var booking entity.Booking
 	err := r.db.Get(&booking, query, bookingID)
 	if err == sql.ErrNoRows {
@@ -77,6 +107,7 @@ type Repositories interface {
 	// http
 	ValidateToken(ctx context.Context, token string) (response.UserServiceValidate, error)
 	InquiryTicketAmount(ctx context.Context, ticketDetailID int64, totalTicket int) (float64, error)
+	DeleteTaskScheduler(ctx context.Context, taskID string) error
 	// redis
 	CheckStockTicket(ctx context.Context, ticketDetailID int64) (int64, error)
 	DecrementStockTicket(ctx context.Context, ticketDetailID int64) error
@@ -89,14 +120,15 @@ type Repositories interface {
 	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
 }
 
-func New(db *sqlx.DB, log log.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig) Repositories {
+func New(db *sqlx.DB, log log.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig, cfgSchedulerService *config.SchedulerServiceConfig) Repositories {
 	return &repositories{
-		db:               db,
-		log:              log,
-		httpClient:       httpClient,
-		redisClient:      redisClient,
-		cfgUserService:   cfgUserService,
-		cfgTicketService: cfgTicketService,
+		db:                  db,
+		log:                 log,
+		httpClient:          httpClient,
+		redisClient:         redisClient,
+		cfgUserService:      cfgUserService,
+		cfgTicketService:    cfgTicketService,
+		cfgSchedulerService: cfgSchedulerService,
 	}
 }
 
@@ -248,16 +280,14 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 		return errors.InternalServerError("error locking rows")
 	}
 
-	var ID int64
-
 	// Perform the upsert operation
 	if err == sql.ErrNoRows {
 		// Insert new payment
 		queryInsert := fmt.Sprintf(`
-			INSERT INTO payments (booking_id, amount, currency, status, payment_method, payment_date, payment_expiration)
-			VALUES ('%s', %f, '%s', '%s', '%s', '%s', '%s') RETURNING id
-		`, payment.BookingID.String(), payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.PaymentDate.Format("2006-01-02 15:04:05"), payment.PaymentExpiration.Format("2006-01-02 15:04:05"))
-		err := tx.QueryRowContext(ctx, queryInsert).Scan(&ID)
+			INSERT INTO payments (booking_id, amount, currency, status, payment_method, payment_date, payment_expiration, task_id)
+			VALUES ('%s', %f, '%s', '%s', '%s', '%s', '%s','%s')
+		`, payment.BookingID.String(), payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.PaymentDate.Format("2006-01-02 15:04:05"), payment.PaymentExpiration.Format("2006-01-02 15:04:05"), payment.TaskID)
+		_, err := tx.ExecContext(ctx, queryInsert)
 		if err != nil {
 			tx.Rollback()
 			return errors.InternalServerError("error upserting payment")
@@ -266,10 +296,10 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 		// Update existing payment
 		queryUpdate := fmt.Sprintf(`
 			UPDATE payments
-			SET amount = %f, currency = '%s', status = '%s', payment_method = '%s', payment_date = '%s', payment_expiration = '%s'
-			WHERE booking_id = '%s' RETURNING id
-		`, payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.PaymentDate.Format("2006-01-02 15:04:05"), payment.PaymentExpiration.Format("2006-01-02 15:04:05"), payment.BookingID.String())
-		err := tx.QueryRowContext(ctx, queryUpdate).Scan(&ID)
+			SET amount = %f, currency = '%s', status = '%s', payment_method = '%s', payment_date = '%s', payment_expiration = '%s', task_id = '%s'
+			WHERE booking_id = '%s'
+		`, payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.PaymentDate.Format("2006-01-02 15:04:05"), payment.PaymentExpiration.Format("2006-01-02 15:04:05"), payment.TaskID, payment.BookingID.String())
+		_, err := tx.ExecContext(ctx, queryUpdate)
 		if err != nil {
 			tx.Rollback()
 			return errors.InternalServerError("error upserting payment")

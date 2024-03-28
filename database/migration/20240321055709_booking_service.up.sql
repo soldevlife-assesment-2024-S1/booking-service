@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS bookings (
 
 
 CREATE TABLE IF NOT EXISTS payments (
-    id BIGINT PRIMARY KEY,
+    id serial PRIMARY KEY,
     booking_id UUID REFERENCES bookings(id),
     amount FLOAT,
     currency TEXT,
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_method TEXT,
     payment_date TIMESTAMP,
     payment_expiration TIMESTAMP,
+    task_id TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL,
     deleted_at TIMESTAMP NULL

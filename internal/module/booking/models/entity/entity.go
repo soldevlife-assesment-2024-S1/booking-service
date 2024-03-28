@@ -15,7 +15,7 @@ type Booking struct {
 	FullName       string       `db:"full_name"`
 	PersonalID     string       `db:"personal_id"`
 	BookingDate    time.Time    `db:"booking_date"`
-	CreatedAt      time.Time    `db:"created_at"`
+	CreatedAt      *time.Time   `db:"created_at"`
 	UpdatedAt      sql.NullTime `db:"updated_at"`
 	DeletedAt      sql.NullTime `db:"deleted_at"`
 }
@@ -29,6 +29,7 @@ type Payment struct {
 	PaymentMethod     string       `db:"payment_method"`
 	PaymentDate       time.Time    `db:"payment_date"`
 	PaymentExpiration time.Time    `db:"payment_expiration"`
+	TaskID            string       `db:"task_id"`
 	CreatedAt         time.Time    `db:"created_at"`
 	UpdatedAt         sql.NullTime `db:"updated_at"`
 	DeletedAt         sql.NullTime `db:"deleted_at"`

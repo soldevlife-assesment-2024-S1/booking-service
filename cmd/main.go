@@ -84,7 +84,7 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 	// start monitoring
 	go scheduler.StartMonitoring(&cfg.Redis)
 
-	bookingRepo := repositories.New(db, logger, httpClient, redis, &cfg.UserService, &cfg.TicketService)
+	bookingRepo := repositories.New(db, logger, httpClient, redis, &cfg.UserService, &cfg.TicketService, &cfg.SchedulerService)
 	bookingUsecase := usecases.New(bookingRepo, logger, publisher, clientScheduler)
 	middleware := middleware.Middleware{
 		Repo: bookingRepo,

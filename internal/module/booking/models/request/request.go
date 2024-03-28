@@ -14,6 +14,10 @@ type Payment struct {
 	PaymetMethod string  `json:"payment_method" validate:"required"`
 }
 
+type PaymentCancellation struct {
+	BookingID string `json:"booking_id" validate:"required"`
+}
+
 type PoisonedQueue struct {
 	TopicTarget string      `json:"topic_target" validate:"required"`
 	ErrorMsg    string      `json:"error_msg" validate:"required"`

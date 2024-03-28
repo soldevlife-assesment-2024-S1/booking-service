@@ -116,6 +116,28 @@ func (h *BookingHandler) Payment(ctx *fiber.Ctx) error {
 	return helpers.RespSuccess(ctx, h.Log, nil, "success payment")
 }
 
+func (h *BookingHandler) PaymentCancel(ctx *fiber.Ctx) error {
+	var req request.PaymentCancellation
+	if err := ctx.BodyParser(&req); err != nil {
+		h.Log.Error(ctx.Context(), "error parse request", err)
+		return helpers.RespError(ctx, h.Log, errors.BadRequest("error parse request"))
+	}
+
+	if err := h.Validator.Struct(req); err != nil {
+		h.Log.Error(ctx.Context(), "error validate request", err)
+		return helpers.RespError(ctx, h.Log, errors.BadRequest(err.Error()))
+	}
+
+	// call usecase to payment cancel
+	err := h.Usecase.PaymentCancel(ctx.Context(), &req)
+	if err != nil {
+		h.Log.Error(ctx.Context(), "error payment cancel", err)
+		return helpers.RespError(ctx, h.Log, err)
+	}
+
+	return helpers.RespSuccess(ctx, h.Log, nil, "success payment cancel")
+}
+
 func (h *BookingHandler) ShowBookings(ctx *fiber.Ctx) error {
 	userID := ctx.Locals("user_id").(int64)
 

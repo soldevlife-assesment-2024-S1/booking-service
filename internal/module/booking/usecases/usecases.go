@@ -27,6 +27,75 @@ type usecase struct {
 	clientScheduler *asynq.Client
 }
 
+// PaymentCancel implements Usecase.
+func (u *usecase) PaymentCancel(ctx context.Context, payload *request.PaymentCancellation) error {
+	// 1. find payment by booking id
+	payment, err := u.repo.FindPaymentByBookingID(ctx, payload.BookingID)
+	if err != nil {
+		return errors.InternalServerError("error find payment by booking id")
+	}
+
+	// 2. find booking by booking id
+	booking, err := u.repo.FindBookingByID(ctx, payment.BookingID.String())
+	if err != nil {
+		return errors.InternalServerError("error find booking by booking id")
+	}
+
+	if payment.ID == 0 {
+		return errors.NotFound("payment not found")
+	}
+
+	// 2. if payment status is pending
+	if payment.Status == "pending" {
+		// 3. update payment status to expired
+		payment.Status = "cancelled"
+		err = u.repo.UpsertPayment(ctx, &payment)
+		if err != nil {
+			return errors.InternalServerError("error upsert payment")
+		}
+
+		// 4. cancel job to check payment expired time
+
+		err = u.repo.DeleteTaskScheduler(ctx, payment.TaskID)
+		if err != nil {
+			return errors.InternalServerError("error delete task scheduler")
+		}
+
+		// 5. publish to rabbit mq for increment stock ticket to ticket service
+
+		messageUUID := watermill.NewUUID()
+
+		specPayload := request.DecrementStockTicket{
+			TicketDetailID: booking.TicketDetailID,
+			TotalTickets:   booking.TotalTickets,
+		}
+
+		jsonPayload, err := json.Marshal(specPayload)
+		if err != nil {
+			return errors.InternalServerError("error marshal payload")
+		}
+
+		err = u.repo.IncrementStockTicket(ctx, booking.TicketDetailID)
+		if err != nil {
+			return errors.InternalServerError("error increment stock ticket")
+		}
+
+		err = u.publish.Publish("increment_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
+		if err != nil {
+			return errors.InternalServerError("error publish decrement stock ticket")
+		}
+
+		// 6. send notification to user about payment
+
+		err = u.publish.Publish("notification", message.NewMessage(watermill.NewUUID(), []byte("your payment has been cancelled")))
+		if err != nil {
+			return errors.InternalServerError("error publish notification")
+		}
+	}
+
+	return nil
+}
+
 // Payment implements Usecase.
 func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
 	// 1. check if payment is valid
@@ -63,28 +132,11 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
 		return errors.InternalServerError("error upsert payment")
 	}
 
-	// 3. publish to rabbit mq for decrement stock ticket
+	// cancel job to check payment expired time
 
-	dataBooking, err := u.repo.FindBookingByID(ctx, payload.BookingID)
+	err = u.repo.DeleteTaskScheduler(ctx, dataPayment.TaskID)
 	if err != nil {
-		return errors.InternalServerError("error find booking by booking id")
-	}
-
-	messageUUID := watermill.NewUUID()
-
-	specPayload := request.DecrementStockTicket{
-		TicketDetailID: dataBooking.TicketDetailID,
-		TotalTickets:   1,
-	}
-
-	jsonPayload, err := json.Marshal(specPayload)
-	if err != nil {
-		return errors.InternalServerError("error marshal payload")
-	}
-
-	err = u.publish.Publish("decrement_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
-	if err != nil {
-		return errors.InternalServerError("error publish decrement stock ticket")
+		return errors.InternalServerError("error delete task scheduler")
 	}
 
 	// 4. send notification to user about payment
@@ -103,6 +155,7 @@ type Usecase interface {
 	ConsumeBookTicketQueue(ctx context.Context, payload *request.BookTicket) error
 	ShowBookings(ctx context.Context, userID int64) (response.BookedTicket, error)
 	Payment(ctx context.Context, payload *request.Payment) error
+	PaymentCancel(ctx context.Context, payload *request.PaymentCancellation) error
 	SetPaymentExpired(ctx context.Context, payload *request.PaymentExpiration) error
 }
 
@@ -197,22 +250,6 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 		return errors.InternalServerError("error inquiry ticket amount")
 	}
 
-	bookingIDuuid := uuid.MustParse(bookingID)
-
-	specPayment := entity.Payment{
-		BookingID:         bookingIDuuid,
-		Amount:            amount,
-		Currency:          "IDR",
-		Status:            "pending",
-		PaymentMethod:     "",
-		PaymentExpiration: paymentExpiredAt,
-	}
-
-	err = u.repo.UpsertPayment(ctx, &specPayment)
-	if err != nil {
-		return errors.InternalServerError("error upsert payment")
-	}
-
 	// 6. start job to check payment expired time
 
 	specPaymentExpiration := request.PaymentExpiration{
@@ -230,9 +267,26 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	taskPaymentExpiredAt := asynq.NewTask(scheduler.TypeSetPaymentExpired, jsonPayloadScheduler, asynq.MaxRetry(3), asynq.Timeout(expiredAt))
 
-	_, err = u.clientScheduler.Enqueue(taskPaymentExpiredAt, asynq.ProcessIn(expiredAt))
+	taskInfo, err := u.clientScheduler.Enqueue(taskPaymentExpiredAt, asynq.ProcessIn(expiredAt))
 	if err != nil {
 		return errors.InternalServerError("error enqueue task payment expired")
+	}
+
+	bookingIDuuid := uuid.MustParse(bookingID)
+
+	specPayment := entity.Payment{
+		BookingID:         bookingIDuuid,
+		Amount:            amount,
+		Currency:          "IDR",
+		Status:            "pending",
+		PaymentMethod:     "",
+		TaskID:            taskInfo.ID,
+		PaymentExpiration: paymentExpiredAt,
+	}
+
+	err = u.repo.UpsertPayment(ctx, &specPayment)
+	if err != nil {
+		return errors.InternalServerError("error upsert payment")
 	}
 
 	// 7. publish to rabbit mq for decrement stock ticket to ticket service
