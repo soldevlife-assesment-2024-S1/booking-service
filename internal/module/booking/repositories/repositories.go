@@ -37,12 +37,10 @@ func (r *repositories) DeleteTaskScheduler(ctx context.Context, taskID string) e
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Println(err)
 		return errors.InternalServerError("error delete task scheduler")
 	}
 	resp, err := r.httpClient.Post(url, "application/json", bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		fmt.Println(err)
 		return errors.InternalServerError("error delete task scheduler")
 	}
 
