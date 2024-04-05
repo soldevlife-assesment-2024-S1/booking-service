@@ -87,7 +87,16 @@ func (u *usecase) PaymentCancel(ctx context.Context, payload *request.PaymentCan
 
 		// 6. send notification to user about payment
 
-		err = u.publish.Publish("notification", message.NewMessage(watermill.NewUUID(), []byte("your payment has been cancelled")))
+		payloadNotification := request.NotificationMessage{
+			Message: "your payment has been cancelled",
+		}
+
+		jsonPayloadNotification, err := json.Marshal(payloadNotification)
+		if err != nil {
+			return errors.InternalServerError("error marshal payload")
+		}
+
+		err = u.publish.Publish("notification_cancel", message.NewMessage(watermill.NewUUID(), jsonPayloadNotification))
 		if err != nil {
 			return errors.InternalServerError("error publish notification")
 		}
@@ -141,7 +150,18 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
 
 	// 4. send notification to user about payment
 
-	err = u.publish.Publish("notification", message.NewMessage(watermill.NewUUID(), []byte("your payment has been paid")))
+	payloadNotification := request.NotificationPayment{
+		BookingID:     payload.BookingID,
+		Message:       "your payment has been paid",
+		PaymentMethod: payload.PaymetMethod,
+	}
+
+	jsonPayloadNotification, err := json.Marshal(payloadNotification)
+	if err != nil {
+		return errors.InternalServerError("error marshal payload")
+	}
+
+	err = u.publish.Publish("notification_payment", message.NewMessage(watermill.NewUUID(), jsonPayloadNotification))
 	if err != nil {
 		return errors.InternalServerError("error publish notification")
 	}
@@ -198,7 +218,16 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 
 	u.publish.Publish("book_ticket", message.NewMessage(messageUUID, jsonPayload))
 
-	u.publish.Publish("notification", message.NewMessage(watermill.NewUUID(), []byte("your ticket has been queued")))
+	payloadNotification := request.NotificationMessage{
+		Message: "your ticket has been queued",
+	}
+
+	jsonPayloadNotification, err := json.Marshal(payloadNotification)
+	if err != nil {
+		return errors.InternalServerError("error marshal payload")
+	}
+
+	u.publish.Publish("notification_queue", message.NewMessage(watermill.NewUUID(), jsonPayloadNotification))
 
 	return nil
 }
@@ -310,7 +339,18 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	// 8. send notification to user about payment
 
-	err = u.publish.Publish("notification", message.NewMessage(watermill.NewUUID(), []byte("your ticket has been queued")))
+	payloadNotification := request.NotificationInvoice{
+		BookingID:         bookingID,
+		PaymentAmount:     amount,
+		PaymentExpiration: paymentExpiredAt.Format("2006-01-02 15:04:05"),
+	}
+
+	jsonPayloadNotification, err := json.Marshal(payloadNotification)
+	if err != nil {
+		return errors.InternalServerError("error marshal payload")
+	}
+
+	err = u.publish.Publish("notification_invoice", message.NewMessage(watermill.NewUUID(), jsonPayloadNotification))
 	if err != nil {
 		u.log.Error(ctx, "error publish notification", err)
 	}

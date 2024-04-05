@@ -34,3 +34,19 @@ type PaymentExpiration struct {
 	TicketDetailID int64  `json:"ticket_detail_id" validate:"required"`
 	TotalTickets   int    `json:"total_tickets" validate:"required"`
 }
+
+type NotificationMessage struct {
+	Message string `json:"message" validate:"required"`
+}
+
+type NotificationInvoice struct {
+	BookingID         string  `json:"booking_id" validate:"required"`
+	PaymentAmount     float64 `json:"payment_amount" validate:"required"`
+	PaymentExpiration string  `json:"payment_expiration" validate:"required"`
+}
+
+type NotificationPayment struct {
+	BookingID     string `json:"booking_id" validate:"required"`
+	Message       string `json:"message" validate:"required"`
+	PaymentMethod string `json:"payment_method" validate:"required"`
+}
