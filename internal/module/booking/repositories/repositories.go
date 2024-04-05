@@ -375,8 +375,9 @@ func (r *repositories) ValidateToken(ctx context.Context, token string) (respons
 
 	respBase.Data = respBase.Data.(map[string]interface{})
 	respData := response.UserServiceValidate{
-		IsValid: respBase.Data.(map[string]interface{})["is_valid"].(bool),
-		UserID:  int64(respBase.Data.(map[string]interface{})["user_id"].(float64)),
+		IsValid:   respBase.Data.(map[string]interface{})["is_valid"].(bool),
+		UserID:    int64(respBase.Data.(map[string]interface{})["user_id"].(float64)),
+		EmailUser: respBase.Data.(map[string]interface{})["email_user"].(string),
 	}
 
 	if !respData.IsValid {

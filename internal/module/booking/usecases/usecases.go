@@ -28,7 +28,7 @@ type usecase struct {
 }
 
 // PaymentCancel implements Usecase.
-func (u *usecase) PaymentCancel(ctx context.Context, payload *request.PaymentCancellation) error {
+func (u *usecase) PaymentCancel(ctx context.Context, payload *request.PaymentCancellation, emailUser string) error {
 	// 1. find payment by booking id
 	payment, err := u.repo.FindPaymentByBookingID(ctx, payload.BookingID)
 	if err != nil {
@@ -88,7 +88,8 @@ func (u *usecase) PaymentCancel(ctx context.Context, payload *request.PaymentCan
 		// 6. send notification to user about payment
 
 		payloadNotification := request.NotificationMessage{
-			Message: "your payment has been cancelled",
+			Message:        "your payment has been cancelled",
+			EmailRecipient: emailUser,
 		}
 
 		jsonPayloadNotification, err := json.Marshal(payloadNotification)
@@ -106,7 +107,7 @@ func (u *usecase) PaymentCancel(ctx context.Context, payload *request.PaymentCan
 }
 
 // Payment implements Usecase.
-func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
+func (u *usecase) Payment(ctx context.Context, payload *request.Payment, emailUser string) error {
 	// 1. check if payment is valid
 
 	dataPayment, err := u.repo.FindPaymentByBookingID(ctx, payload.BookingID)
@@ -151,9 +152,10 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
 	// 4. send notification to user about payment
 
 	payloadNotification := request.NotificationPayment{
-		BookingID:     payload.BookingID,
-		Message:       "your payment has been paid",
-		PaymentMethod: payload.PaymetMethod,
+		BookingID:      payload.BookingID,
+		Message:        "your payment has been paid",
+		PaymentMethod:  payload.PaymetMethod,
+		EmailRecipient: emailUser,
 	}
 
 	jsonPayloadNotification, err := json.Marshal(payloadNotification)
@@ -171,11 +173,11 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment) error {
 
 type Usecase interface {
 	// http
-	BookTicket(ctx context.Context, payload *request.BookTicket, userID int64) error
+	BookTicket(ctx context.Context, payload *request.BookTicket, userID int64, emailUser string) error
 	ConsumeBookTicketQueue(ctx context.Context, payload *request.BookTicket) error
 	ShowBookings(ctx context.Context, userID int64) (response.BookedTicket, error)
-	Payment(ctx context.Context, payload *request.Payment) error
-	PaymentCancel(ctx context.Context, payload *request.PaymentCancellation) error
+	Payment(ctx context.Context, payload *request.Payment, emailUser string) error
+	PaymentCancel(ctx context.Context, payload *request.PaymentCancellation, emailUser string) error
 	SetPaymentExpired(ctx context.Context, payload *request.PaymentExpiration) error
 }
 
@@ -188,7 +190,7 @@ func New(repo repositories.Repositories, log log.Logger, publish message.Publish
 	}
 }
 
-func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, userID int64) error {
+func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, userID int64, emailUser string) error {
 	// scenario 1: booking satu satu
 	stock, err := u.repo.CheckStockTicket(ctx, payload.TicketDetailID)
 	if err != nil {
@@ -219,7 +221,8 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 	u.publish.Publish("book_ticket", message.NewMessage(messageUUID, jsonPayload))
 
 	payloadNotification := request.NotificationMessage{
-		Message: "your ticket has been queued",
+		Message:        "your ticket has been queued",
+		EmailRecipient: emailUser,
 	}
 
 	jsonPayloadNotification, err := json.Marshal(payloadNotification)

@@ -40,6 +40,7 @@ func (m *Middleware) ValidateToken(ctx *fiber.Ctx) error {
 	}
 
 	ctx.Locals("user_id", resp.UserID)
+	ctx.Locals("email_user", resp.EmailUser)
 
 	return ctx.Next()
 }

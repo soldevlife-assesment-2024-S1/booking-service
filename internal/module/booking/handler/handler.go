@@ -36,9 +36,10 @@ func (h *BookingHandler) BookTicket(ctx *fiber.Ctx) error {
 	}
 
 	userID := ctx.Locals("user_id").(int64)
+	emailUser := ctx.Locals("email_user").(string)
 
 	// call usecase to book ticket
-	err := h.Usecase.BookTicket(ctx.Context(), &req, userID)
+	err := h.Usecase.BookTicket(ctx.Context(), &req, userID, emailUser)
 	if err != nil {
 		h.Log.Error(ctx.Context(), "error book ticket", err)
 		return helpers.RespError(ctx, h.Log, err)
@@ -106,8 +107,10 @@ func (h *BookingHandler) Payment(ctx *fiber.Ctx) error {
 		return helpers.RespError(ctx, h.Log, errors.BadRequest(err.Error()))
 	}
 
+	emailUser := ctx.Locals("email_user").(string)
+
 	// call usecase to payment
-	err := h.Usecase.Payment(ctx.Context(), &req)
+	err := h.Usecase.Payment(ctx.Context(), &req, emailUser)
 	if err != nil {
 		h.Log.Error(ctx.Context(), "error payment", err)
 		return helpers.RespError(ctx, h.Log, err)
@@ -128,8 +131,10 @@ func (h *BookingHandler) PaymentCancel(ctx *fiber.Ctx) error {
 		return helpers.RespError(ctx, h.Log, errors.BadRequest(err.Error()))
 	}
 
+	emailUser := ctx.Locals("email_user").(string)
+
 	// call usecase to payment cancel
-	err := h.Usecase.PaymentCancel(ctx.Context(), &req)
+	err := h.Usecase.PaymentCancel(ctx.Context(), &req, emailUser)
 	if err != nil {
 		h.Log.Error(ctx.Context(), "error payment cancel", err)
 		return helpers.RespError(ctx, h.Log, err)

@@ -1,8 +1,9 @@
 package response
 
 type UserServiceValidate struct {
-	IsValid bool  `json:"is_valid"`
-	UserID  int64 `json:"user_id"`
+	IsValid   bool   `json:"is_valid"`
+	UserID    int64  `json:"user_id"`
+	EmailUser string `json:"email_user"`
 }
 
 type BaseResponse struct {
