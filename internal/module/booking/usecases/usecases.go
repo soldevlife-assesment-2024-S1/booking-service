@@ -212,6 +212,8 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 
 	// 1. send the queue to rabbit mq
 
+	payload.EmailRecipient = emailUser
+
 	messageUUID := watermill.NewUUID()
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
@@ -346,6 +348,7 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 		BookingID:         bookingID,
 		PaymentAmount:     amount,
 		PaymentExpiration: paymentExpiredAt.Format("2006-01-02 15:04:05"),
+		EmailRecipient:    payload.EmailRecipient,
 	}
 
 	jsonPayloadNotification, err := json.Marshal(payloadNotification)

@@ -22,7 +22,7 @@ func Initialize(app *fiber.App, handlerBooking *handler.BookingHandler, m *middl
 	// v1.Post("/book", m.ValidateToken, m.CheckIsWeekend, handlerBooking.BookTicket)
 	v1.Post("/book", m.ValidateToken, handlerBooking.BookTicket)
 	v1.Post("/payment", m.ValidateToken, handlerBooking.Payment)
-	v1.Post("/payment/cancel", handlerBooking.PaymentCancel)
+	v1.Post("/payment/cancel", m.ValidateToken, handlerBooking.PaymentCancel)
 
 	return app
 

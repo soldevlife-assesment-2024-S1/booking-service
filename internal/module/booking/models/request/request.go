@@ -6,6 +6,7 @@ type BookTicket struct {
 	PersonalID     string `json:"personal_id" validate:"required"`
 	UserID         int64  `json:"user_id" validate:"required"`
 	TotalTickets   int    `json:"total_tickets" validate:"required"`
+	EmailRecipient string `json:"email_recipient"`
 }
 
 type Payment struct {

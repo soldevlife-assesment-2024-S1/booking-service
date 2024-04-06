@@ -390,7 +390,8 @@ func (r *repositories) ValidateToken(ctx context.Context, token string) (respons
 
 	// validate token
 	return response.UserServiceValidate{
-		IsValid: respData.IsValid,
-		UserID:  respData.UserID,
+		IsValid:   respData.IsValid,
+		UserID:    respData.UserID,
+		EmailUser: respData.EmailUser,
 	}, nil
 }
