@@ -37,10 +37,15 @@ jobs:
         cache: false
     - name: Test
       run: make unit-test
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
+    # - name: Upload coverage reports to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   env:
+    #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
       env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     
   scan:
     needs: test

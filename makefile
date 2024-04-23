@@ -14,8 +14,8 @@ lint:
 
 unit-test:
 	@echo "Running tests"
-	mkdir -p ./test/coverage && \
-		CGO_ENABLED=1 GOOS=linux go test $(BUILD_ARGS) -v ./... -coverprofile=./test/coverage/coverage.out
+	go test -v -covermode=count ./... -coverprofile=coverage.cov
+	go tool cover -func=coverage.cov 
 
 coverage:
 	@echo "Running tests with coverage"
