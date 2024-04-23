@@ -2,7 +2,6 @@ package log
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -82,8 +81,8 @@ func (l *LoggerConf) withTraceInfo(ctx context.Context) *LoggerConf {
 		return l.Clone(l.dep)
 	}
 	apmCtx := span.TraceContext()
-	traceId := ZapString("trace.id", fmt.Sprintf("%s", apmCtx.Trace.String()))
-	spanId := ZapString("span.id", fmt.Sprintf("%s", apmCtx.Span.String()))
+	traceId := ZapString("trace.id", apmCtx.Trace.String())
+	spanId := ZapString("span.id", apmCtx.Span.String())
 	return l.Clone(l.dep.With(
 		traceId,
 		spanId,

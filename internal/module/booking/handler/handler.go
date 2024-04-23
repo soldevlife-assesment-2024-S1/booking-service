@@ -67,7 +67,10 @@ func (h *BookingHandler) ConsumeBookingQueue(msg *message.Message) error {
 
 		jsonPayload, _ := json.Marshal(reqPoisoned)
 
-		h.Publish.Publish("poisoned_queue", message.NewMessage(watermill.NewUUID(), jsonPayload))
+		err = h.Publish.Publish("poisoned_queue", message.NewMessage(watermill.NewUUID(), jsonPayload))
+		if err != nil {
+			h.Log.Error(msg.Context(), "error publish to poison queue", err)
+		}
 
 		return err
 	}
@@ -85,7 +88,10 @@ func (h *BookingHandler) ConsumeBookingQueue(msg *message.Message) error {
 		}
 
 		jsonPayload, _ := json.Marshal(reqPoisoned)
-		h.Publish.Publish("poisoned_queue", message.NewMessage(watermill.NewUUID(), jsonPayload))
+		err = h.Publish.Publish("poisoned_queue", message.NewMessage(watermill.NewUUID(), jsonPayload))
+		if err != nil {
+			h.Log.Error(msg.Context(), "error publish to poison queue", err)
+		}
 
 		h.Log.Error(msg.Context(), "error consume booking queue", err)
 

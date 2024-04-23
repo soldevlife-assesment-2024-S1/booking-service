@@ -220,7 +220,10 @@ func (r *repositories) UpsertBooking(ctx context.Context, booking *entity.Bookin
 	var existingBooking entity.Booking
 	err = r.db.GetContext(ctx, &existingBooking, query, booking.ID)
 	if err != nil && err != sql.ErrNoRows {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return "", errors.InternalServerError("error rolling back transaction")
+		}
 		return "", errors.InternalServerError("error locking rows")
 	}
 
@@ -237,7 +240,10 @@ func (r *repositories) UpsertBooking(ctx context.Context, booking *entity.Bookin
 		err := tx.QueryRowContext(ctx,
 			queryInsert).Scan(&ID)
 		if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				return "", errors.InternalServerError("error rolling back transaction")
+			}
 			return "", errors.InternalServerError("error upserting booking")
 		}
 	} else {
@@ -249,7 +255,10 @@ func (r *repositories) UpsertBooking(ctx context.Context, booking *entity.Bookin
 		`, booking.UserID, booking.TicketDetailID, booking.TotalTickets, booking.FullName, booking.PersonalID, booking.BookingDate.Format("2006-01-02 15:04:05"), booking.ID)
 		err := tx.QueryRowContext(ctx, queryUpdate).Scan(&ID)
 		if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				return "", errors.InternalServerError("error rolling back transaction")
+			}
 			return "", errors.InternalServerError("error upserting booking")
 		}
 	}
@@ -274,7 +283,10 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 	var existingPayment entity.Payment
 	err = r.db.GetContext(ctx, &existingPayment, query, payment.BookingID)
 	if err != nil && err != sql.ErrNoRows {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return errors.InternalServerError("error rolling back transaction")
+		}
 		return errors.InternalServerError("error locking rows")
 	}
 
@@ -287,7 +299,10 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 		`, payment.BookingID.String(), payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.PaymentDate.Format("2006-01-02 15:04:05"), payment.PaymentExpiration.Format("2006-01-02 15:04:05"), payment.TaskID)
 		_, err := tx.ExecContext(ctx, queryInsert)
 		if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				return errors.InternalServerError("error rolling back transaction")
+			}
 			return errors.InternalServerError("error upserting payment")
 		}
 	} else {
@@ -299,7 +314,10 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 		`, payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.PaymentDate.Format("2006-01-02 15:04:05"), payment.PaymentExpiration.Format("2006-01-02 15:04:05"), payment.TaskID, payment.BookingID.String())
 		_, err := tx.ExecContext(ctx, queryUpdate)
 		if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				return errors.InternalServerError("error rolling back transaction")
+			}
 			return errors.InternalServerError("error upserting payment")
 		}
 	}

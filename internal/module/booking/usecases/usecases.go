@@ -220,7 +220,10 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 		return errors.InternalServerError("error marshal payload")
 	}
 
-	u.publish.Publish("book_ticket", message.NewMessage(messageUUID, jsonPayload))
+	err = u.publish.Publish("book_ticket", message.NewMessage(messageUUID, jsonPayload))
+	if err != nil {
+		return errors.InternalServerError("error publish book ticket")
+	}
 
 	payloadNotification := request.NotificationMessage{
 		Message:        "your ticket has been queued",
@@ -232,7 +235,10 @@ func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, u
 		return errors.InternalServerError("error marshal payload")
 	}
 
-	u.publish.Publish("notification_queue", message.NewMessage(watermill.NewUUID(), jsonPayloadNotification))
+	err = u.publish.Publish("notification_queue", message.NewMessage(watermill.NewUUID(), jsonPayloadNotification))
+	if err != nil {
+		return errors.InternalServerError("error publish notification")
+	}
 
 	return nil
 }
