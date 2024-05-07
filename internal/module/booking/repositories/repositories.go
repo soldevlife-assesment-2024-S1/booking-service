@@ -6,14 +6,17 @@ import (
 	"booking-service/internal/module/booking/models/response"
 	"booking-service/internal/pkg/errors"
 	"booking-service/internal/pkg/log"
+	"booking-service/internal/pkg/scheduler"
 	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 	circuit "github.com/rubyist/circuitbreaker"
@@ -27,6 +30,19 @@ type repositories struct {
 	cfgUserService      *config.UserServiceConfig
 	cfgSchedulerService *config.SchedulerServiceConfig
 	redisClient         *redis.Client
+	clientScheduler     *asynq.Client
+}
+
+// SetTaskScheduler implements Repositories.
+func (r *repositories) SetTaskScheduler(ctx context.Context, expiredAt time.Duration, payload []byte) (taskID string, err error) {
+	taskPaymentExpiredAt := asynq.NewTask(scheduler.TypeSetPaymentExpired, payload, asynq.MaxRetry(3), asynq.Timeout(expiredAt))
+
+	taskInfo, err := r.clientScheduler.Enqueue(taskPaymentExpiredAt, asynq.ProcessIn(expiredAt))
+	if err != nil {
+		return "", errors.InternalServerError("error enqueue task payment expired")
+	}
+
+	return taskInfo.ID, nil
 }
 
 // DeleteTaskScheduler implements Repositories.
@@ -99,35 +115,6 @@ func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID i
 	}
 
 	return respData.TotalAmount, nil
-}
-
-type Repositories interface {
-	// http
-	ValidateToken(ctx context.Context, token string) (response.UserServiceValidate, error)
-	InquiryTicketAmount(ctx context.Context, ticketDetailID int64, totalTicket int) (float64, error)
-	DeleteTaskScheduler(ctx context.Context, taskID string) error
-	// redis
-	CheckStockTicket(ctx context.Context, ticketDetailID int64) (int64, error)
-	DecrementStockTicket(ctx context.Context, ticketDetailID int64) error
-	IncrementStockTicket(ctx context.Context, ticketDetailID int64) error
-	// db
-	UpsertBooking(ctx context.Context, booking *entity.Booking) (id string, err error)
-	UpsertPayment(ctx context.Context, payment *entity.Payment) error
-	FindBookingByUserID(ctx context.Context, userID int64) (entity.Booking, error)
-	FindBookingByID(ctx context.Context, bookingID string) (entity.Booking, error)
-	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
-}
-
-func New(db *sqlx.DB, log log.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig, cfgSchedulerService *config.SchedulerServiceConfig) Repositories {
-	return &repositories{
-		db:                  db,
-		log:                 log,
-		httpClient:          httpClient,
-		redisClient:         redisClient,
-		cfgUserService:      cfgUserService,
-		cfgTicketService:    cfgTicketService,
-		cfgSchedulerService: cfgSchedulerService,
-	}
 }
 
 // FindBookingByBookingID implements Repositories.
@@ -412,4 +399,35 @@ func (r *repositories) ValidateToken(ctx context.Context, token string) (respons
 		UserID:    respData.UserID,
 		EmailUser: respData.EmailUser,
 	}, nil
+}
+
+type Repositories interface {
+	// http
+	ValidateToken(ctx context.Context, token string) (response.UserServiceValidate, error)
+	InquiryTicketAmount(ctx context.Context, ticketDetailID int64, totalTicket int) (float64, error)
+	DeleteTaskScheduler(ctx context.Context, taskID string) error
+	// redis
+	CheckStockTicket(ctx context.Context, ticketDetailID int64) (int64, error)
+	DecrementStockTicket(ctx context.Context, ticketDetailID int64) error
+	IncrementStockTicket(ctx context.Context, ticketDetailID int64) error
+	SetTaskScheduler(ctx context.Context, expiredAt time.Duration, payload []byte) (taskID string, err error)
+	// db
+	UpsertBooking(ctx context.Context, booking *entity.Booking) (id string, err error)
+	UpsertPayment(ctx context.Context, payment *entity.Payment) error
+	FindBookingByUserID(ctx context.Context, userID int64) (entity.Booking, error)
+	FindBookingByID(ctx context.Context, bookingID string) (entity.Booking, error)
+	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
+}
+
+func New(db *sqlx.DB, log log.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig, cfgSchedulerService *config.SchedulerServiceConfig, clientScheduler *asynq.Client) Repositories {
+	return &repositories{
+		db:                  db,
+		log:                 log,
+		httpClient:          httpClient,
+		redisClient:         redisClient,
+		cfgUserService:      cfgUserService,
+		cfgTicketService:    cfgTicketService,
+		cfgSchedulerService: cfgSchedulerService,
+		clientScheduler:     clientScheduler,
+	}
 }

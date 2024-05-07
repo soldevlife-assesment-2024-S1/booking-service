@@ -8,7 +8,6 @@ import (
 	"booking-service/internal/pkg/errors"
 	"booking-service/internal/pkg/helpers"
 	"booking-service/internal/pkg/log"
-	"booking-service/internal/pkg/scheduler"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,14 +16,12 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
 )
 
 type usecase struct {
-	repo            repositories.Repositories
-	log             log.Logger
-	publish         message.Publisher
-	clientScheduler *asynq.Client
+	repo    repositories.Repositories
+	log     log.Logger
+	publish message.Publisher
 }
 
 // PaymentCancel implements Usecase.
@@ -135,6 +132,7 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment, emailUs
 		PaymentMethod:     payload.PaymetMethod,
 		PaymentDate:       time.Now(),
 		PaymentExpiration: dataPayment.PaymentExpiration,
+		TaskID:            dataPayment.TaskID,
 	}
 
 	err = u.repo.UpsertPayment(ctx, &specPayment)
@@ -169,25 +167,6 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment, emailUs
 	}
 
 	return nil
-}
-
-type Usecase interface {
-	// http
-	BookTicket(ctx context.Context, payload *request.BookTicket, userID int64, emailUser string) error
-	ConsumeBookTicketQueue(ctx context.Context, payload *request.BookTicket) error
-	ShowBookings(ctx context.Context, userID int64) (response.BookedTicket, error)
-	Payment(ctx context.Context, payload *request.Payment, emailUser string) error
-	PaymentCancel(ctx context.Context, payload *request.PaymentCancellation, emailUser string) error
-	SetPaymentExpired(ctx context.Context, payload *request.PaymentExpiration) error
-}
-
-func New(repo repositories.Repositories, log log.Logger, publish message.Publisher, clientScheduler *asynq.Client) Usecase {
-	return &usecase{
-		repo:            repo,
-		log:             log,
-		publish:         publish,
-		clientScheduler: clientScheduler,
-	}
 }
 
 func (u *usecase) BookTicket(ctx context.Context, payload *request.BookTicket, userID int64, emailUser string) error {
@@ -305,12 +284,7 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	expiredAt := helpers.DurationCalculation(paymentExpiredAt)
 
-	taskPaymentExpiredAt := asynq.NewTask(scheduler.TypeSetPaymentExpired, jsonPayloadScheduler, asynq.MaxRetry(3), asynq.Timeout(expiredAt))
-
-	taskInfo, err := u.clientScheduler.Enqueue(taskPaymentExpiredAt, asynq.ProcessIn(expiredAt))
-	if err != nil {
-		return errors.InternalServerError("error enqueue task payment expired")
-	}
+	taskID, err := u.repo.SetTaskScheduler(ctx, expiredAt, jsonPayloadScheduler)
 
 	bookingIDuuid := uuid.MustParse(bookingID)
 
@@ -320,7 +294,7 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 		Currency:          "IDR",
 		Status:            "pending",
 		PaymentMethod:     "",
-		TaskID:            taskInfo.ID,
+		TaskID:            taskID,
 		PaymentExpiration: paymentExpiredAt,
 	}
 
@@ -450,4 +424,22 @@ func (u *usecase) SetPaymentExpired(ctx context.Context, payload *request.Paymen
 	}
 
 	return nil
+}
+
+type Usecase interface {
+	// http
+	BookTicket(ctx context.Context, payload *request.BookTicket, userID int64, emailUser string) error
+	ConsumeBookTicketQueue(ctx context.Context, payload *request.BookTicket) error
+	ShowBookings(ctx context.Context, userID int64) (response.BookedTicket, error)
+	Payment(ctx context.Context, payload *request.Payment, emailUser string) error
+	PaymentCancel(ctx context.Context, payload *request.PaymentCancellation, emailUser string) error
+	SetPaymentExpired(ctx context.Context, payload *request.PaymentExpiration) error
+}
+
+func New(repo repositories.Repositories, log log.Logger, publish message.Publisher) Usecase {
+	return &usecase{
+		repo:    repo,
+		log:     log,
+		publish: publish,
+	}
 }
