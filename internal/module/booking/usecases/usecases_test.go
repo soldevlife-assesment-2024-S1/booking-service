@@ -332,3 +332,60 @@ func TestShowBooking(t *testing.T) {
 		assert.Equal(t, expectedResponse, response)
 	})
 }
+
+func TestSetPaymentExpired(t *testing.T) {
+	setup()
+	defer teardown()
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		// mock data
+		payloadMock := request.PaymentExpiration{
+			BookingID:      "00000000-0000-0000-0000-000000000000",
+			TicketDetailID: 1,
+			TotalTickets:   1,
+		}
+
+		paymentMock := entity.Payment{
+			ID:                1,
+			BookingID:         uuid.UUID{},
+			Amount:            1000,
+			Currency:          "USD",
+			Status:            "pending",
+			PaymentMethod:     "Paypal",
+			PaymentDate:       dateTimeNow.Round(time.Second),
+			PaymentExpiration: time.Time{},
+			TaskID:            "1",
+			CreatedAt:         time.Time{},
+			UpdatedAt:         sql.NullTime{},
+			DeletedAt:         sql.NullTime{},
+		}
+
+		paymentMockUpsert := entity.Payment{
+			ID:                1,
+			BookingID:         uuid.UUID{},
+			Amount:            1000,
+			Currency:          "USD",
+			Status:            "expired",
+			PaymentMethod:     "Paypal",
+			PaymentDate:       dateTimeNow.Round(time.Second),
+			PaymentExpiration: time.Time{},
+			TaskID:            "1",
+			CreatedAt:         time.Time{},
+			UpdatedAt:         sql.NullTime{},
+			DeletedAt:         sql.NullTime{},
+		}
+
+		// mock repo
+		repoMock.On("FindPaymentByBookingID", ctx, payloadMock.BookingID).Return(paymentMock, nil)
+		repoMock.On("UpsertPayment", ctx, &paymentMockUpsert).Return(nil)
+		repoMock.On("DeleteTaskScheduler", ctx, paymentMock.TaskID).Return(nil)
+		repoMock.On("IncrementStockTicket", ctx, int64(1)).Return(nil)
+
+		// test
+		err := uc.SetPaymentExpired(ctx, &payloadMock)
+
+		// assert
+		assert.NoError(t, err)
+	})
+}
