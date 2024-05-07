@@ -130,7 +130,7 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment, emailUs
 		Currency:          "USD",
 		Status:            "paid",
 		PaymentMethod:     payload.PaymetMethod,
-		PaymentDate:       time.Now(),
+		PaymentDate:       time.Now().Round(time.Second),
 		PaymentExpiration: dataPayment.PaymentExpiration,
 		TaskID:            dataPayment.TaskID,
 	}
@@ -253,7 +253,7 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 		TotalTickets:   payload.TotalTickets,
 		FullName:       payload.FullName,
 		PersonalID:     payload.PersonalID,
-		BookingDate:    time.Now(),
+		BookingDate:    time.Now().Round(time.Second),
 	}
 
 	bookingID, err := u.repo.UpsertBooking(ctx, &specBooking)
@@ -284,7 +284,10 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	expiredAt := helpers.DurationCalculation(paymentExpiredAt)
 
-	taskID, err := u.repo.SetTaskScheduler(ctx, expiredAt, jsonPayloadScheduler)
+	taskID, err := u.repo.SetTaskScheduler(ctx, expiredAt.Round(time.Second), jsonPayloadScheduler)
+	if err != nil {
+		return errors.InternalServerError("error set task scheduler")
+	}
 
 	bookingIDuuid := uuid.MustParse(bookingID)
 
@@ -295,7 +298,7 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 		Status:            "pending",
 		PaymentMethod:     "",
 		TaskID:            taskID,
-		PaymentExpiration: paymentExpiredAt,
+		PaymentExpiration: paymentExpiredAt.Round(time.Second),
 	}
 
 	err = u.repo.UpsertPayment(ctx, &specPayment)
