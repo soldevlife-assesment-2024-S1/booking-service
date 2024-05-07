@@ -4,6 +4,7 @@ import (
 	"booking-service/internal/module/booking/handler"
 	"booking-service/internal/module/booking/mocks"
 	"booking-service/internal/module/booking/models/request"
+	"booking-service/internal/module/booking/models/response"
 	"booking-service/internal/pkg/log"
 	log_internal "booking-service/internal/pkg/log"
 	"context"
@@ -204,6 +205,31 @@ func TestPaymentCancel(t *testing.T) {
 		// assertion
 		assert.NoError(t, err)
 
+	})
+}
+
+func TestShowBooking(t *testing.T) {
+	setup()
+	defer teardown()
+	t.Run("success", func(t *testing.T) {
+		// mock data
+		httpReq := httptest.NewRequest("GET", "/api/v1/bookings", nil)
+		httpReq.Header.Set("Content-Type", "application/json")
+
+		ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+		ctx.Request().SetRequestURI("/api/v1/bookings")
+		ctx.Request().Header.SetContentType("application/json")
+		ctx.Request().Header.SetMethod("GET")
+		ctx.Locals("user_id", int64(1))
+
+		// mock usecase
+		ucm.On("ShowBookings", ctx.Context(), int64(1)).Return(response.BookedTicket{}, nil)
+
+		// test
+		err := h.ShowBookings(ctx)
+
+		// assertion
+		assert.NoError(t, err)
 	})
 }
 
