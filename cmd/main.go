@@ -118,6 +118,7 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 
 	// setup http server
 	serverHttp := http.SetupHttpEngine()
+	http.InitTracer(cfg)
 
 	r := router.Initialize(serverHttp, &bookingHandler, &middleware)
 

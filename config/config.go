@@ -17,6 +17,7 @@ type Config struct {
 	SchedulerService SchedulerServiceConfig
 	TicketService    TicketServiceConfig
 	Database         DatabaseConfig
+	ServiceName      string `envconfig:"service_name"`
 }
 
 type SchedulerServiceConfig struct {
