@@ -2,9 +2,11 @@ package httpclient
 
 import (
 	"booking-service/config"
+	"net/http"
 	"time"
 
 	circuit "github.com/rubyist/circuitbreaker"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Init initializes the circuit breaker based on the configuration and breaker type: consecutive, error_rate, threshold
@@ -37,5 +39,6 @@ func InitHttpClient(cfg *config.HttpClientConfig, cb *circuit.Breaker) *circuit.
 		timeout,
 		nil,
 	)
+	client.Client.Transport = otelhttp.NewTransport(http.DefaultTransport)
 	return client
 }

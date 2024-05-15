@@ -1,12 +1,15 @@
 package database
 
 import (
+	"booking-service/config"
 	"fmt"
 	"log"
-	"booking-service/config"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	"github.com/uptrace/opentelemetry-go-extra/otelsqlx"
+	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 )
 
 var conn *sqlx.DB
@@ -15,7 +18,7 @@ func initConnection(cfg *config.DatabaseConfig) *sqlx.DB {
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.DBName)
 
 	var err error
-	conn, err = sqlx.Connect("postgres", dsn)
+	conn, err = otelsqlx.Connect("postgres", dsn, otelsql.WithAttributes(semconv.DBSystemPostgreSQL), otelsql.WithDBName(cfg.DBName))
 	if err != nil {
 		panic(err)
 	}

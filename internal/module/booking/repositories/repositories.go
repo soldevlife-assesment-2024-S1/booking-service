@@ -12,6 +12,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -55,7 +56,12 @@ func (r *repositories) DeleteTaskScheduler(ctx context.Context, taskID string) e
 	if err != nil {
 		return errors.InternalServerError("error delete task scheduler")
 	}
-	resp, err := r.httpClient.Post(url, "application/json", bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		return errors.InternalServerError("error delete task scheduler")
+	}
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return errors.InternalServerError("error delete task scheduler")
 	}
@@ -75,7 +81,7 @@ func (r *repositories) DeleteTaskScheduler(ctx context.Context, taskID string) e
 func (r *repositories) FindBookingByID(ctx context.Context, bookingID string) (entity.Booking, error) {
 	query := `SELECT * FROM bookings WHERE id = $1`
 	var booking entity.Booking
-	err := r.db.Get(&booking, query, bookingID)
+	err := r.db.GetContext(ctx, &booking, query, bookingID)
 	if err == sql.ErrNoRows {
 		return entity.Booking{}, nil
 	}
@@ -88,8 +94,12 @@ func (r *repositories) FindBookingByID(ctx context.Context, bookingID string) (e
 // InquiryTicketAmount implements Repositories.
 func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID int64, totalTicket int) (float64, error) {
 	url := fmt.Sprintf("http://%s:%s/api/private/ticket/inquiry?ticket_detail_id=%d&total_ticket=%d", r.cfgTicketService.Host, r.cfgTicketService.Port, ticketDetailID, totalTicket)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return 0, errors.InternalServerError("error inquiry ticket amount")
+	}
 
-	resp, err := r.httpClient.Get(url)
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return 0, errors.InternalServerError("error inquiry ticket amount")
 	}
@@ -121,7 +131,7 @@ func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID i
 func (r *repositories) FindBookingByBookingID(ctx context.Context, bookingID string) (entity.Booking, error) {
 	query := fmt.Sprintf(`SELECT * FROM bookings WHERE id = %s`, bookingID)
 	var booking entity.Booking
-	err := r.db.Get(&booking, query)
+	err := r.db.GetContext(ctx, &booking, query)
 	if err == sql.ErrNoRows {
 		return entity.Booking{}, nil
 	}
@@ -138,7 +148,11 @@ func (r *repositories) CheckStockTicket(ctx context.Context, ticketDetailID int6
 	if err != nil {
 		// hit api ticket service to get stock ticket
 		url := fmt.Sprintf("http://%s:%s/api/private/ticket/stock?ticket_detail_id=%d", r.cfgTicketService.Host, r.cfgTicketService.Port, ticketDetailID)
-		resp, err := r.httpClient.Get(url)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return 0, errors.InternalServerError("error get stock ticket")
+		}
+		resp, err := r.httpClient.Do(req)
 		if err != nil {
 			return 0, errors.InternalServerError("error get stock ticket")
 		}
@@ -321,7 +335,7 @@ func (r *repositories) UpsertPayment(ctx context.Context, payment *entity.Paymen
 func (r *repositories) FindBookingByUserID(ctx context.Context, userID int64) (entity.Booking, error) {
 	query := fmt.Sprintf(`SELECT * FROM bookings WHERE user_id = %d`, userID)
 	var booking entity.Booking
-	err := r.db.Get(&booking, query)
+	err := r.db.GetContext(ctx, &booking, query)
 	if err == sql.ErrNoRows {
 		return entity.Booking{}, nil
 	}
@@ -336,7 +350,7 @@ func (r *repositories) FindPaymentByBookingID(ctx context.Context, bookingID str
 	bookingIDuuid := uuid.MustParse(bookingID)
 	query := fmt.Sprintf(`SELECT * FROM payments WHERE booking_id = '%s'`, bookingIDuuid.String())
 	var payment entity.Payment
-	err := r.db.Get(&payment, query)
+	err := r.db.GetContext(ctx, &payment, query)
 	if err == sql.ErrNoRows {
 		return entity.Payment{}, nil
 	}
@@ -349,7 +363,14 @@ func (r *repositories) FindPaymentByBookingID(ctx context.Context, bookingID str
 func (r *repositories) ValidateToken(ctx context.Context, token string) (response.UserServiceValidate, error) {
 	// http call to user service
 	url := fmt.Sprintf("http://%s:%s/api/private/user/validate?token=%s", r.cfgUserService.Host, r.cfgUserService.Port, token)
-	resp, err := r.httpClient.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return response.UserServiceValidate{
+			IsValid: false,
+			UserID:  0,
+		}, err
+	}
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return response.UserServiceValidate{
 			IsValid: false,

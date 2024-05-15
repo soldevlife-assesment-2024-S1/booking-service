@@ -90,6 +90,7 @@ func InitTracer(cfg *config.Config) *sdktrace.TracerProvider {
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	otel.Tracer("soldevlife")
 	return tp
 }
 
