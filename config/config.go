@@ -18,6 +18,7 @@ type Config struct {
 	TicketService    TicketServiceConfig
 	Database         DatabaseConfig
 	ServiceName      string `envconfig:"service_name"`
+	OpenTelemetry    OpenTelemetryConfig
 }
 
 type SchedulerServiceConfig struct {
@@ -93,6 +94,10 @@ type HttpServerConfig struct {
 type LoggerConfig struct {
 	IsVerbose       bool   `envconfig:"logger_is_verbose"`
 	LoggerCollector string `envconfig:"logger_logger_collector"`
+}
+
+type OpenTelemetryConfig struct {
+	Endpoint string `envconfig:"otel_endpoint"`
 }
 
 func InitConfig() *Config {

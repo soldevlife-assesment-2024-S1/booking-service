@@ -2,6 +2,7 @@ package http
 
 import (
 	"booking-service/config"
+	"context"
 	"log"
 	"os"
 	"time"
@@ -10,11 +11,13 @@ import (
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"go.opentelemetry.io/otel"
-	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -55,10 +58,27 @@ func SetupHttpEngine() *fiber.App {
 }
 
 func InitTracer(cfg *config.Config) *sdktrace.TracerProvider {
-	exporter, err := stdout.New(stdout.WithPrettyPrint())
+	// exporter, err := stdout.New(stdout.WithPrettyPrint())
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// It connects the OpenTelemetry Collector through local gRPC connection.
+	// You may replace `localhost:4317` with your endpoint.
+	conn, err := grpc.NewClient(cfg.OpenTelemetry.Endpoint,
+		// Note the use of insecure transport here. TLS is recommended in production.
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to create gRPC connection: %v", err)
 	}
+
+	// Set up a trace exporter
+	exporter, err := otlptracegrpc.New(context.Background(), otlptracegrpc.WithGRPCConn(conn))
+	if err != nil {
+		log.Fatalf("failed to create trace exporter: %v", err)
+	}
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithBatcher(exporter),
