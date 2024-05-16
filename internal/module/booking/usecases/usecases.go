@@ -7,7 +7,6 @@ import (
 	"booking-service/internal/module/booking/repositories"
 	"booking-service/internal/pkg/errors"
 	"booking-service/internal/pkg/helpers"
-	"booking-service/internal/pkg/log"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,11 +15,12 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/google/uuid"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 )
 
 type usecase struct {
 	repo    repositories.Repositories
-	log     log.Logger
+	log     *otelzap.Logger
 	publish message.Publisher
 }
 
@@ -322,7 +322,7 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	err = u.publish.Publish("decrement_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
 	if err != nil {
-		u.log.Error(ctx, "error publish decrement stock ticket", err)
+		u.log.Ctx(ctx).Error(fmt.Sprintf("error publish decrement stock ticket: %v", err))
 	}
 
 	// 8. send notification to user about payment
@@ -341,7 +341,7 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 
 	err = u.publish.Publish("notification_invoice", message.NewMessage(watermill.NewUUID(), jsonPayloadNotification))
 	if err != nil {
-		u.log.Error(ctx, "error publish notification", err)
+		u.log.Ctx(ctx).Error(fmt.Sprintf("error publish notification invoice: %v", err))
 	}
 
 	return nil
@@ -385,7 +385,7 @@ func (u *usecase) SetPaymentExpired(ctx context.Context, payload *request.Paymen
 	// 1. find payment by booking id
 	payment, err := u.repo.FindPaymentByBookingID(ctx, payload.BookingID)
 	if err != nil {
-		u.log.Error(ctx, "error find payment by booking id", err)
+		u.log.Ctx(ctx).Error(fmt.Sprintf("error find payment by booking id: %v", err))
 		return err
 	}
 
@@ -395,7 +395,7 @@ func (u *usecase) SetPaymentExpired(ctx context.Context, payload *request.Paymen
 		payment.Status = "expired"
 		err = u.repo.UpsertPayment(ctx, &payment)
 		if err != nil {
-			u.log.Error(ctx, "error upsert payment", err)
+			u.log.Ctx(ctx).Error(fmt.Sprintf("error upsert payment: %v", err))
 			return err
 		}
 
@@ -421,7 +421,7 @@ func (u *usecase) SetPaymentExpired(ctx context.Context, payload *request.Paymen
 		err = u.publish.Publish("increment_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
 
 		if err != nil {
-			u.log.Error(ctx, "error publish decrement stock ticket", err)
+			u.log.Ctx(ctx).Error(fmt.Sprintf("error publish increment stock ticket: %v", err))
 			return err
 		}
 	}
@@ -439,7 +439,7 @@ type Usecase interface {
 	SetPaymentExpired(ctx context.Context, payload *request.PaymentExpiration) error
 }
 
-func New(repo repositories.Repositories, log log.Logger, publish message.Publisher) Usecase {
+func New(repo repositories.Repositories, log *otelzap.Logger, publish message.Publisher) Usecase {
 	return &usecase{
 		repo:    repo,
 		log:     log,

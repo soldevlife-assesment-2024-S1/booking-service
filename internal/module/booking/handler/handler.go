@@ -5,8 +5,8 @@ import (
 	"booking-service/internal/module/booking/usecases"
 	"booking-service/internal/pkg/errors"
 	"booking-service/internal/pkg/helpers"
-	"booking-service/internal/pkg/log"
 	"context"
+	"fmt"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -14,10 +14,11 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 )
 
 type BookingHandler struct {
-	Log       log.Logger
+	Log       *otelzap.Logger
 	Validator *validator.Validate
 	Usecase   usecases.Usecase
 	Publish   message.Publisher
@@ -26,12 +27,12 @@ type BookingHandler struct {
 func (h *BookingHandler) BookTicket(ctx *fiber.Ctx) error {
 	var req request.BookTicket
 	if err := ctx.BodyParser(&req); err != nil {
-		h.Log.Error(ctx.Context(), "error parse request", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error parse request: %v", err))
 		return helpers.RespError(ctx, h.Log, errors.BadRequest("error parse request"))
 	}
 
 	if err := h.Validator.Struct(req); err != nil {
-		h.Log.Error(ctx.Context(), "error validate request", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error validate request: %v", err))
 		return helpers.RespError(ctx, h.Log, errors.BadRequest("error validate request"))
 	}
 
@@ -41,7 +42,7 @@ func (h *BookingHandler) BookTicket(ctx *fiber.Ctx) error {
 	// call usecase to book ticket
 	err := h.Usecase.BookTicket(ctx.Context(), &req, userID, emailUser)
 	if err != nil {
-		h.Log.Error(ctx.Context(), "error book ticket", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error book ticket: %v", err))
 		return helpers.RespError(ctx, h.Log, err)
 	}
 
@@ -56,7 +57,7 @@ func (h *BookingHandler) ConsumeBookingQueue(msg *message.Message) error {
 	msg.Ack() // acknowledge message
 	var req request.BookTicket
 	if err := json.Unmarshal(msg.Payload, &req); err != nil {
-		h.Log.Error(msg.Context(), "error unmarshal message", err)
+		h.Log.Ctx(msg.Context()).Error(fmt.Sprintf("error unmarshal message: %v", err))
 
 		// publish to poison queue
 		reqPoisoned := request.PoisonedQueue{
@@ -69,7 +70,7 @@ func (h *BookingHandler) ConsumeBookingQueue(msg *message.Message) error {
 
 		err = h.Publish.Publish("poisoned_queue", message.NewMessage(watermill.NewUUID(), jsonPayload))
 		if err != nil {
-			h.Log.Error(msg.Context(), "error publish to poison queue", err)
+			h.Log.Ctx(msg.Context()).Error(fmt.Sprintf("error publish to poison queue: %v", err))
 		}
 
 		return err
@@ -90,10 +91,10 @@ func (h *BookingHandler) ConsumeBookingQueue(msg *message.Message) error {
 		jsonPayload, _ := json.Marshal(reqPoisoned)
 		err = h.Publish.Publish("poisoned_queue", message.NewMessage(watermill.NewUUID(), jsonPayload))
 		if err != nil {
-			h.Log.Error(msg.Context(), "error publish to poison queue", err)
+			h.Log.Ctx(msg.Context()).Error(fmt.Sprintf("error publish to poison queue: %v", err))
 		}
 
-		h.Log.Error(msg.Context(), "error consume booking queue", err)
+		h.Log.Ctx(msg.Context()).Error(fmt.Sprintf("error consume booking queue: %v", err))
 
 		return err
 	}
@@ -104,12 +105,12 @@ func (h *BookingHandler) ConsumeBookingQueue(msg *message.Message) error {
 func (h *BookingHandler) Payment(ctx *fiber.Ctx) error {
 	var req request.Payment
 	if err := ctx.BodyParser(&req); err != nil {
-		h.Log.Error(ctx.Context(), "error parse request", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error parse request: %v", err))
 		return helpers.RespError(ctx, h.Log, errors.BadRequest("error parse request"))
 	}
 
 	if err := h.Validator.Struct(req); err != nil {
-		h.Log.Error(ctx.Context(), "error validate request", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error validate request: %v", err))
 		return helpers.RespError(ctx, h.Log, errors.BadRequest(err.Error()))
 	}
 
@@ -118,7 +119,7 @@ func (h *BookingHandler) Payment(ctx *fiber.Ctx) error {
 	// call usecase to payment
 	err := h.Usecase.Payment(ctx.Context(), &req, emailUser)
 	if err != nil {
-		h.Log.Error(ctx.Context(), "error payment", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error payment: %v", err))
 		return helpers.RespError(ctx, h.Log, err)
 	}
 
@@ -128,12 +129,12 @@ func (h *BookingHandler) Payment(ctx *fiber.Ctx) error {
 func (h *BookingHandler) PaymentCancel(ctx *fiber.Ctx) error {
 	var req request.PaymentCancellation
 	if err := ctx.BodyParser(&req); err != nil {
-		h.Log.Error(ctx.Context(), "error parse request", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error parse request: %v", err))
 		return helpers.RespError(ctx, h.Log, errors.BadRequest("error parse request"))
 	}
 
 	if err := h.Validator.Struct(req); err != nil {
-		h.Log.Error(ctx.Context(), "error validate request", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error validate request: %v", err))
 		return helpers.RespError(ctx, h.Log, errors.BadRequest(err.Error()))
 	}
 
@@ -142,7 +143,7 @@ func (h *BookingHandler) PaymentCancel(ctx *fiber.Ctx) error {
 	// call usecase to payment cancel
 	err := h.Usecase.PaymentCancel(ctx.Context(), &req, emailUser)
 	if err != nil {
-		h.Log.Error(ctx.Context(), "error payment cancel", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error payment cancel: %v", err))
 		return helpers.RespError(ctx, h.Log, err)
 	}
 
@@ -155,7 +156,7 @@ func (h *BookingHandler) ShowBookings(ctx *fiber.Ctx) error {
 	// call usecase to show bookings
 	resp, err := h.Usecase.ShowBookings(ctx.Context(), userID)
 	if err != nil {
-		h.Log.Error(ctx.Context(), "error show bookings", err)
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error show bookings: %v", err))
 		return helpers.RespError(ctx, h.Log, err)
 	}
 
@@ -165,19 +166,19 @@ func (h *BookingHandler) ShowBookings(ctx *fiber.Ctx) error {
 func (h *BookingHandler) SetPaymentExpired(ctx context.Context, t *asynq.Task) error {
 	var req request.PaymentExpiration
 	if err := json.Unmarshal(t.Payload(), &req); err != nil {
-		h.Log.Error(ctx, "error unmarshal message", err)
+		h.Log.Ctx(ctx).Error(fmt.Sprintf("error unmarshal payload: %v", err))
 		return err
 	}
 
 	if err := h.Validator.Struct(req); err != nil {
-		h.Log.Error(ctx, "error validate request", err)
+		h.Log.Ctx(ctx).Error(fmt.Sprintf("error validate payload: %v", err))
 		return err
 	}
 
 	// call usecase to set payment expired
 	err := h.Usecase.SetPaymentExpired(ctx, &req)
 	if err != nil {
-		h.Log.Error(ctx, "error set payment expired", err)
+		h.Log.Ctx(ctx).Error(fmt.Sprintf("error set payment expired: %v", err))
 		return err
 	}
 

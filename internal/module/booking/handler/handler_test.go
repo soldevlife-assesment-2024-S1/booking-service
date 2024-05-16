@@ -5,7 +5,6 @@ import (
 	"booking-service/internal/module/booking/mocks"
 	"booking-service/internal/module/booking/models/request"
 	"booking-service/internal/module/booking/models/response"
-	"booking-service/internal/pkg/log"
 	log_internal "booking-service/internal/pkg/log"
 	"context"
 	"net/http/httptest"
@@ -17,13 +16,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/assert"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"github.com/valyala/fasthttp"
 )
 
 var (
 	h             *handler.BookingHandler
 	ucm           *mocks.Usecase
-	logMock       log.Logger
+	logMock       *otelzap.Logger
 	app           *fiber.App
 	validatorTest *validator.Validate
 	p             message.Publisher
@@ -48,9 +48,7 @@ func NewMockPublisher() message.Publisher {
 
 func setup() {
 	ucm = &mocks.Usecase{}
-	logZap := log_internal.SetupLogger()
-	log_internal.Init(logZap)
-	logMock := log_internal.GetLogger()
+	logMock := log_internal.Setup()
 	validatorTest = validator.New()
 	p = NewMockPublisher()
 	h = &handler.BookingHandler{

@@ -15,6 +15,7 @@ import (
 	"booking-service/internal/pkg/scheduler"
 	router "booking-service/internal/route"
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -49,9 +50,7 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 	// init redis
 	redis := redis.SetupClient(&cfg.Redis)
 	// init logger
-	logZap := log_internal.SetupLogger()
-	log_internal.Init(logZap)
-	logger := log_internal.GetLogger()
+	logger := log_internal.Setup()
 	// init http client
 	cb := httpclient.InitCircuitBreaker(&cfg.HttpClient, cfg.HttpClient.Type)
 	httpClient := httpclient.InitHttpClient(&cfg.HttpClient, cb)
@@ -63,13 +62,13 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 	// Init Subscriber
 	subscriber, err := amqp.NewSubscriber()
 	if err != nil {
-		logger.Error(ctx, "Failed to create subscriber", err)
+		logger.Ctx(ctx).Fatal(fmt.Sprintf("Failed to create subscriber: %v", err))
 	}
 
 	// Init Publisher
 	publisher, err := amqp.NewPublisher()
 	if err != nil {
-		logger.Error(ctx, "Failed to create publisher", err)
+		logger.Ctx(ctx).Fatal(fmt.Sprintf("Failed to create publisher: %v", err))
 	}
 
 	typeTaskSetPaymentExpired := scheduler.TypeSetPaymentExpired
@@ -103,7 +102,7 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 
 	consumeBookingQueueRouter, err := messagestream.NewRouter(publisher, "book_ticket_poisoned", "book_ticket_handler", "book_ticket", subscriber, bookingHandler.ConsumeBookingQueue)
 	if err != nil {
-		logger.Error(ctx, "Failed to create consume_booking_queue router", err)
+		logger.Ctx(ctx).Error(fmt.Sprintf("Failed to create consume booking queue router: %v", err))
 	}
 
 	messageRouters = append(messageRouters, consumeBookingQueueRouter)

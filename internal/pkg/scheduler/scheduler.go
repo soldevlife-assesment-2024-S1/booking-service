@@ -2,13 +2,13 @@ package scheduler
 
 import (
 	"booking-service/config"
-	"booking-service/internal/pkg/log"
 	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/hibiken/asynq"
 	"github.com/hibiken/asynqmon"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 )
 
 type Scheduler struct {
-	Log log.Logger
+	Log *otelzap.Logger
 }
 
 func (s *Scheduler) StartMonitoring(cfg *config.RedisConfig) {
@@ -34,7 +34,7 @@ func (s *Scheduler) StartMonitoring(cfg *config.RedisConfig) {
 	// Go to http://localhost:8080/monitoring to see asynqmon homepage.
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
-		s.Log.Error(ctx, "error start monitoring scheduler", err)
+		s.Log.Ctx(ctx).Error(fmt.Sprintf("error start monitoring: %v", err))
 	}
 }
 
@@ -65,7 +65,7 @@ func (s *Scheduler) StartHandler(cfg *config.RedisConfig, taskTypes []string, ha
 	}
 
 	if err := srv.Run(mux); err != nil {
-		s.Log.Error(ctx, "error start handler scheduler", err)
+		s.Log.Ctx(ctx).Error(fmt.Sprintf("error start handler: %v", err))
 	}
 }
 

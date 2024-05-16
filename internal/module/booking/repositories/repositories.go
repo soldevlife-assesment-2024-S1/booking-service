@@ -5,7 +5,6 @@ import (
 	"booking-service/internal/module/booking/models/entity"
 	"booking-service/internal/module/booking/models/response"
 	"booking-service/internal/pkg/errors"
-	"booking-service/internal/pkg/log"
 	"booking-service/internal/pkg/scheduler"
 	"bytes"
 	"context"
@@ -21,11 +20,12 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 	circuit "github.com/rubyist/circuitbreaker"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 )
 
 type repositories struct {
 	db                  *sqlx.DB
-	log                 log.Logger
+	log                 *otelzap.Logger
 	httpClient          *circuit.HTTPClient
 	cfgTicketService    *config.TicketServiceConfig
 	cfgUserService      *config.UserServiceConfig
@@ -70,7 +70,7 @@ func (r *repositories) DeleteTaskScheduler(ctx context.Context, taskID string) e
 
 	if resp.StatusCode != 200 {
 		fmt.Println(resp)
-		r.log.Error(ctx, "Delete task scheduler failed", resp.StatusCode)
+		r.log.Ctx(ctx).Error(fmt.Sprintf("Delete task scheduler failed: %d", resp.StatusCode))
 		return errors.BadRequest("Delete task scheduler failed")
 	}
 
@@ -107,7 +107,7 @@ func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID i
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		r.log.Error(ctx, "Inquiry ticket amount failed", resp.StatusCode)
+		r.log.Ctx(ctx).Error(fmt.Sprintf("Inquiry ticket amount failed: %d", resp.StatusCode))
 		return 0, errors.BadRequest("Inquiry ticket amount failed")
 	}
 
@@ -160,7 +160,7 @@ func (r *repositories) CheckStockTicket(ctx context.Context, ticketDetailID int6
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			r.log.Error(ctx, "Get stock ticket failed", resp.StatusCode)
+			r.log.Ctx(ctx).Error(fmt.Sprintf("Get stock ticket failed: %d", resp.StatusCode))
 			return 0, errors.BadRequest("Get stock ticket failed")
 		}
 
@@ -381,7 +381,7 @@ func (r *repositories) ValidateToken(ctx context.Context, token string) (respons
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		r.log.Error(ctx, "Invalid token", resp.StatusCode)
+		r.log.Ctx(ctx).Error(fmt.Sprintf("Invalid token: %d", resp.StatusCode))
 		return response.UserServiceValidate{
 			IsValid: false,
 			UserID:  0,
@@ -407,7 +407,7 @@ func (r *repositories) ValidateToken(ctx context.Context, token string) (respons
 	}
 
 	if !respData.IsValid {
-		r.log.Error(ctx, "Invalid token", resp.StatusCode)
+		r.log.Ctx(ctx).Error("Invalid token")
 		return response.UserServiceValidate{
 			IsValid: false,
 			UserID:  0,
@@ -440,7 +440,7 @@ type Repositories interface {
 	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
 }
 
-func New(db *sqlx.DB, log log.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig, cfgSchedulerService *config.SchedulerServiceConfig, clientScheduler *asynq.Client) Repositories {
+func New(db *sqlx.DB, log *otelzap.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig, cfgSchedulerService *config.SchedulerServiceConfig, clientScheduler *asynq.Client) Repositories {
 	return &repositories{
 		db:                  db,
 		log:                 log,

@@ -4,15 +4,16 @@ import (
 	"booking-service/internal/module/booking/repositories"
 	"booking-service/internal/pkg/errors"
 	"booking-service/internal/pkg/helpers"
-	log "booking-service/internal/pkg/log"
+	"fmt"
 	"go/token"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 )
 
 type Middleware struct {
-	Log  log.Logger
+	Log  *otelzap.Logger
 	Repo repositories.Repositories
 }
 
@@ -20,7 +21,7 @@ func (m *Middleware) ValidateToken(ctx *fiber.Ctx) error {
 	// get token from header
 	auth := ctx.Get("Authorization")
 	if auth == "" {
-		m.Log.Error(ctx.Context(), "error get token from header", errors.UnauthorizedError("error get token from header"))
+		m.Log.Ctx(ctx.UserContext()).Error("error get token from header")
 		return helpers.RespError(ctx, m.Log, errors.UnauthorizedError("error get token from header"))
 	}
 
@@ -30,12 +31,12 @@ func (m *Middleware) ValidateToken(ctx *fiber.Ctx) error {
 	// check repostipories if token is valid
 	resp, err := m.Repo.ValidateToken(ctx.Context(), token)
 	if err != nil {
-		m.Log.Error(ctx.Context(), "error validate token", err)
+		m.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error validate token: %v", err))
 		return helpers.RespError(ctx, m.Log, errors.UnauthorizedError("error validate token"))
 	}
 
 	if !resp.IsValid {
-		m.Log.Error(ctx.Context(), "error validate token", errors.UnauthorizedError("error validate token"))
+		m.Log.Ctx(ctx.UserContext()).Error("error validate token")
 		return helpers.RespError(ctx, m.Log, errors.UnauthorizedError("error validate token"))
 	}
 
@@ -53,6 +54,6 @@ func (m *Middleware) CheckIsWeekend(ctx *fiber.Ctx) error {
 		return ctx.Next()
 	}
 
-	m.Log.Error(ctx.Context(), "error validate booking day", errors.BadRequest("error validate booking day, only can book on weekend"))
+	m.Log.Ctx(ctx.UserContext()).Error("error validate booking day, only can book on weekend")
 	return helpers.RespError(ctx, m.Log, errors.BadRequest("error validate booking day, only can book on weekend"))
 }

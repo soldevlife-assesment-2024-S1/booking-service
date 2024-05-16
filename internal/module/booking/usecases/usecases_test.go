@@ -7,7 +7,6 @@ import (
 	"booking-service/internal/module/booking/models/response"
 	"booking-service/internal/module/booking/usecases"
 	"booking-service/internal/pkg/helpers"
-	"booking-service/internal/pkg/log"
 	log_internal "booking-service/internal/pkg/log"
 	"context"
 	"database/sql"
@@ -18,12 +17,13 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 )
 
 var (
 	uc          usecases.Usecase
 	repoMock    *mocks.Repositories
-	logMock     log.Logger
+	logMock     *otelzap.Logger
 	p           message.Publisher
 	dateTimeNow = time.Now()
 )
@@ -47,9 +47,7 @@ func NewMockPublisher() message.Publisher {
 func setup() {
 	repoMock = new(mocks.Repositories)
 	p = NewMockPublisher()
-	logZap := log_internal.SetupLogger()
-	log_internal.Init(logZap)
-	logMock = log_internal.GetLogger()
+	logMock = log_internal.Setup()
 	uc = usecases.New(repoMock, logMock, p)
 }
 

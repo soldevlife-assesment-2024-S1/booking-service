@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	sqlxmock "github.com/zhashkevych/go-sqlxmock"
 
 	"booking-service/internal/module/booking/models/entity"
@@ -21,14 +22,12 @@ import (
 var (
 	mock    sqlxmock.Sqlmock
 	dbx     *sqlx.DB
-	logMock log_internal.Logger
+	logMock *otelzap.Logger
 )
 
 func setup() {
 	dbx, mock, _ = sqlxmock.Newx()
-	logZap := log_internal.SetupLogger()
-	log_internal.Init(logZap)
-	logMock = log_internal.GetLogger()
+	logMock = log_internal.Setup()
 }
 
 func TestFindBookingByID(t *testing.T) {
