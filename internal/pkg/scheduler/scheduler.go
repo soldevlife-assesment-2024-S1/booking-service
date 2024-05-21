@@ -32,7 +32,7 @@ func (s *Scheduler) StartMonitoring(cfg *config.RedisConfig) {
 	http.Handle(h.RootPath()+"/", h)
 
 	// Go to http://localhost:8080/monitoring to see asynqmon homepage.
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8081", nil)
 	if err != nil {
 		s.Log.Ctx(ctx).Error(fmt.Sprintf("error start monitoring: %v", err))
 	}
