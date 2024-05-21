@@ -4,6 +4,7 @@ import (
 	"booking-service/config"
 	"fmt"
 	"log"
+	"net/url"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-amqp/pkg/amqp"
@@ -21,11 +22,16 @@ func NewAmpq(cfg *config.MessageStreamConfig) MessageStream {
 }
 
 func (m *ampq) NewSubscriber() (message.Subscriber, error) {
+	username := url.QueryEscape(m.cfg.Username)
+	password := url.QueryEscape(m.cfg.Password)
+	host := m.cfg.Host
+	port := m.cfg.Port
+
 	var ampqURI string
 	if m.cfg.SSL {
-		ampqURI = fmt.Sprintf("amqps://%s:%s@%s:%s/", m.cfg.Username, m.cfg.Password, m.cfg.Host, m.cfg.Port)
+		ampqURI = fmt.Sprintf("amqps://%s:%s@%s:%s/", username, password, host, port)
 	} else {
-		ampqURI = fmt.Sprintf("amqp://%s:%s@%s:%s/", m.cfg.Username, m.cfg.Password, m.cfg.Host, m.cfg.Port)
+		ampqURI = fmt.Sprintf("amqp://%s:%s@%s:%s/", username, password, host, port)
 	}
 	ampqConfig := amqp.NewDurableQueueConfig(ampqURI)
 
@@ -41,7 +47,17 @@ func (m *ampq) NewSubscriber() (message.Subscriber, error) {
 }
 
 func (m *ampq) NewPublisher() (message.Publisher, error) {
-	ampqURI := fmt.Sprintf("amqp://%s:%s@%s:%s/", m.cfg.Username, m.cfg.Password, m.cfg.Host, m.cfg.Port)
+	username := url.QueryEscape(m.cfg.Username)
+	password := url.QueryEscape(m.cfg.Password)
+	host := m.cfg.Host
+	port := m.cfg.Port
+
+	var ampqURI string
+	if m.cfg.SSL {
+		ampqURI = fmt.Sprintf("amqps://%s:%s@%s:%s/", username, password, host, port)
+	} else {
+		ampqURI = fmt.Sprintf("amqp://%s:%s@%s:%s/", username, password, host, port)
+	}
 	ampqConfig := amqp.NewDurableQueueConfig(ampqURI)
 
 	publisher, err := amqp.NewPublisher(

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking
+  labels:
+    app: booking
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: booking
+  template:
+    metadata:
+      labels:
+        app: booking
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: booking
+          envFrom:
+            - configMapRef:
+                name: booking-service-config
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          image: ghcr.io/soldevlife-assesment-2024-s1/booking-service:latest
+          ports:
+            - containerPort: 8080
+          imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking-service
+spec:
+  selector:
+    app: booking
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
