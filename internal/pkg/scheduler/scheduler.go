@@ -3,6 +3,7 @@ package scheduler
 import (
 	"booking-service/config"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -43,6 +44,9 @@ func (s *Scheduler) InitClient(cfg *config.RedisConfig) *asynq.Client {
 		Addr:     fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
 		Password: cfg.Password,
 		DB:       cfg.DB,
+		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
 	})
 }
 
