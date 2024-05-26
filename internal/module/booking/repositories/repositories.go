@@ -32,6 +32,7 @@ type repositories struct {
 	cfgSchedulerService *config.SchedulerServiceConfig
 	redisClient         *redis.Client
 	clientScheduler     *asynq.Client
+	cb                  *circuit.Breaker
 }
 
 // SetTaskScheduler implements Repositories.
@@ -48,6 +49,9 @@ func (r *repositories) SetTaskScheduler(ctx context.Context, expiredAt time.Dura
 
 // DeleteTaskScheduler implements Repositories.
 func (r *repositories) DeleteTaskScheduler(ctx context.Context, taskID string) error {
+	if !r.cb.Ready() {
+		return errors.InternalServerError("error delete task scheduler")
+	}
 	url := fmt.Sprintf("http://%s:%s/monitoring/api/queues/default/scheduled_tasks:batch_delete", r.cfgSchedulerService.Host, r.cfgSchedulerService.Port)
 	payload := map[string]interface{}{
 		"task_ids": []string{taskID},
@@ -93,6 +97,9 @@ func (r *repositories) FindBookingByID(ctx context.Context, bookingID string) (e
 
 // InquiryTicketAmount implements Repositories.
 func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID int64, totalTicket int) (float64, error) {
+	if !r.cb.Ready() {
+		return 0, errors.InternalServerError("error inquiry ticket amount")
+	}
 	url := fmt.Sprintf("http://%s:%s/api/private/ticket/inquiry?ticket_detail_id=%d&total_ticket=%d", r.cfgTicketService.Host, r.cfgTicketService.Port, ticketDetailID, totalTicket)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -146,6 +153,9 @@ func (r *repositories) CheckStockTicket(ctx context.Context, ticketDetailID int6
 	ticketIDString := fmt.Sprintf("%d", ticketDetailID)
 	data, err := r.redisClient.Get(ctx, ticketIDString).Result()
 	if err != nil {
+		if !r.cb.Ready() {
+			return 0, errors.InternalServerError("error check stock ticket")
+		}
 		// hit api ticket service to get stock ticket
 		url := fmt.Sprintf("http://%s:%s/api/private/ticket/stock?ticket_detail_id=%d", r.cfgTicketService.Host, r.cfgTicketService.Port, ticketDetailID)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -362,6 +372,12 @@ func (r *repositories) FindPaymentByBookingID(ctx context.Context, bookingID str
 
 func (r *repositories) ValidateToken(ctx context.Context, token string) (response.UserServiceValidate, error) {
 	// http call to user service
+	if !r.cb.Ready() {
+		return response.UserServiceValidate{
+			IsValid: false,
+			UserID:  0,
+		}, errors.InternalServerError("error validate token")
+	}
 	url := fmt.Sprintf("http://%s:%s/api/private/user/validate?token=%s", r.cfgUserService.Host, r.cfgUserService.Port, token)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -440,7 +456,7 @@ type Repositories interface {
 	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
 }
 
-func New(db *sqlx.DB, log *otelzap.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig, cfgSchedulerService *config.SchedulerServiceConfig, clientScheduler *asynq.Client) Repositories {
+func New(db *sqlx.DB, log *otelzap.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig, cfgSchedulerService *config.SchedulerServiceConfig, clientScheduler *asynq.Client, cb *circuit.Breaker) Repositories {
 	return &repositories{
 		db:                  db,
 		log:                 log,
@@ -450,5 +466,6 @@ func New(db *sqlx.DB, log *otelzap.Logger, httpClient *circuit.HTTPClient, redis
 		cfgTicketService:    cfgTicketService,
 		cfgSchedulerService: cfgSchedulerService,
 		clientScheduler:     clientScheduler,
+		cb:                  cb,
 	}
 }

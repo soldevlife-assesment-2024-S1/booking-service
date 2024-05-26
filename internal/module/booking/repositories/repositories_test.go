@@ -33,7 +33,7 @@ func setup() {
 func TestFindBookingByID(t *testing.T) {
 	setup()
 	// Create a new instance of the repository
-	repo := repositories.New(dbx, logMock, nil, nil, nil, nil, nil, nil)
+	repo := repositories.New(dbx, logMock, nil, nil, nil, nil, nil, nil, nil)
 
 	UUID := uuid.New()
 
