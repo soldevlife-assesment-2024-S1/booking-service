@@ -10,12 +10,13 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/rubyist/circuitbreaker v2.2.1+incompatible
 	github.com/stretchr/testify v1.9.0
+	github.com/uptrace/opentelemetry-go-extra/otelsql v0.2.4
+	github.com/uptrace/opentelemetry-go-extra/otelsqlx v0.2.4
 	github.com/valyala/fasthttp v1.51.0
+	github.com/voi-oss/watermill-opentelemetry v0.1.3
 	github.com/zhashkevych/go-sqlxmock v1.5.1
-	go.elastic.co/apm v1.15.0
 	go.opentelemetry.io/otel v1.26.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.26.0
-	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.26.0
 	go.opentelemetry.io/otel/sdk v1.26.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.64.0
@@ -56,8 +57,6 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/uptrace/opentelemetry-go-extra/otelsql v0.2.4 // indirect
-	github.com/uptrace/opentelemetry-go-extra/otelsqlx v0.2.4 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelutil v0.2.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
@@ -79,29 +78,16 @@ require (
 
 require (
 	github.com/ThreeDotsLabs/watermill-amqp v1.1.4
-	github.com/armon/go-radix v1.0.0 // indirect
-	github.com/elastic/go-licenser v0.3.1 // indirect
-	github.com/elastic/go-sysinfo v1.1.1 // indirect
-	github.com/elastic/go-windows v1.0.0 // indirect
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/goccy/go-json v0.10.2
 	github.com/gofiber/contrib/otelfiber/v2 v2.1.0
 	github.com/hibiken/asynq v0.24.1
 	github.com/hibiken/asynqmon v0.7.2
-	github.com/jcchavezs/porto v0.1.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/joeshaw/multierror v0.0.0-20140124173710-69b34d4ec901 // indirect
 	github.com/lib/pq v1.10.9
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/redis/go-redis/v9 v9.5.1
-	github.com/santhosh-tekuri/jsonschema v1.2.4 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelzap v0.2.4
-	go.elastic.co/fastjson v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0
-	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
-	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
-	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
 )
