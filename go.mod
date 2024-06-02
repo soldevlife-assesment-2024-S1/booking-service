@@ -78,6 +78,7 @@ require (
 
 require (
 	github.com/ThreeDotsLabs/watermill-amqp v1.1.4
+	github.com/dentech-floss/watermill-opentelemetry-go-extra v0.1.0
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/goccy/go-json v0.10.2
 	github.com/gofiber/contrib/otelfiber/v2 v2.1.0

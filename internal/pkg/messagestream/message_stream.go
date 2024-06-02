@@ -8,6 +8,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 	"github.com/ThreeDotsLabs/watermill/message/router/plugin"
+	wotelfloss "github.com/dentech-floss/watermill-opentelemetry-go-extra/pkg/opentelemetry"
 	wotel "github.com/voi-oss/watermill-opentelemetry/pkg/opentelemetry"
 )
 
@@ -50,6 +51,7 @@ func NewRouter(pub message.Publisher, poisonTopic string, handlerTopicName strin
 
 		middleware.CorrelationID,
 		middleware.Recoverer,
+		wotelfloss.ExtractRemoteParentSpanContext(),
 		wotel.Trace(),
 	)
 

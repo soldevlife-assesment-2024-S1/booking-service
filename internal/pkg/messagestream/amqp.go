@@ -9,6 +9,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-amqp/pkg/amqp"
 	"github.com/ThreeDotsLabs/watermill/message"
+	wotelfloss "github.com/dentech-floss/watermill-opentelemetry-go-extra/pkg/opentelemetry"
 	wotel "github.com/voi-oss/watermill-opentelemetry/pkg/opentelemetry"
 )
 
@@ -68,8 +69,8 @@ func (m *ampq) NewPublisher() (message.Publisher, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return wotel.NewNamedPublisherDecorator(m.cfg.ExchangeName, publisher), err
+	tracePropagatingPublisherDecorator := wotelfloss.NewTracePropagatingPublisherDecorator(publisher)
+	return wotel.NewNamedPublisherDecorator(m.cfg.ExchangeName, tracePropagatingPublisherDecorator), err
 }
 
 func ProcessMessages(messages <-chan *message.Message) {
