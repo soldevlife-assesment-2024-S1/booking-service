@@ -123,19 +123,13 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 	}
 
 	// setup tracer
-	tracerProvider := http.InitTracer(conn, serviceName)
-	defer tracerProvider.Shutdown(ctx)
+	http.InitTracer(conn, serviceName)
 
-	// setup matrics
-	meterProvider, err := http.InitMeterProvider(conn, serviceName)
+	// setup meter
+	_, err = http.InitMeterProvider(conn, serviceName)
 	if err != nil {
 		logger.Ctx(ctx).Fatal(fmt.Sprintf("Failed to create meter provider: %v", err))
 	}
-	defer func() {
-		if err := meterProvider(ctx); err != nil {
-			log.Fatalf("failed to shutdown MeterProvider: %s", err)
-		}
-	}()
 
 	r := router.Initialize(serverHttp, &bookingHandler, &middleware)
 

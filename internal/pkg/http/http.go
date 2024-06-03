@@ -65,7 +65,7 @@ func SetupHttpEngine() *fiber.App {
 func InitConn(cfg *config.Config) (*grpc.ClientConn, string, error) {
 	// It connects the OpenTelemetry Collector through local gRPC connection.
 	// You may replace `localhost:4317` with your endpoint.
-	conn, err := grpc.NewClient("localhost:4317",
+	conn, err := grpc.NewClient(cfg.OpenTelemetry.Endpoint,
 		// Note the use of insecure transport here. TLS is recommended in production.
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -114,7 +114,7 @@ func InitMeterProvider(conn *grpc.ClientConn, serviceName string) (func(context.
 		)),
 	)
 	otel.SetMeterProvider(meterProvider)
-
+	otel.Meter("soldevlife")
 	return meterProvider.Shutdown, nil
 }
 
