@@ -25,7 +25,7 @@ type PoisonedQueue struct {
 	Payload     interface{} `json:"payload" validate:"required"`
 }
 
-type DecrementStockTicket struct {
+type StockTicket struct {
 	TicketDetailID int64 `json:"ticket_detail_id" validate:"required"`
 	TotalTickets   int   `json:"total_tickets" validate:"required"`
 }
