@@ -26,15 +26,6 @@ scan:
 	@echo "Running scann..."
 	gosec ./internal/...
 
-DB_HOST=soldevlife-booking-service2024053106135688160000000a.cgyygeag3oal.ap-southeast-1.rds.amazonaws.com
-DB_PORT=5432
-DB_USER=soldevlife
-DB_PASSWORD=soldevlife
-DB_NAME=postgres
-DB_SSL=disable
-
-DB_URL=postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL)
-
 migrate-up:
 	@echo "Migrating up..."
 	migrate -path database/migration -database $(DB_URL) -verbose up

@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/goccy/go-json"
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"go.opentelemetry.io/contrib/instrumentation/host"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -115,6 +117,20 @@ func InitMeterProvider(conn *grpc.ClientConn, serviceName string) (func(context.
 	)
 	otel.SetMeterProvider(meterProvider)
 	otel.Meter("soldevlife")
+
+	go func() {
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer cancel()
+
+		log.Print("Starting host instrumentation:")
+		err := host.Start(host.WithMeterProvider(meterProvider))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		<-ctx.Done()
+	}()
+
 	return meterProvider.Shutdown, nil
 }
 
