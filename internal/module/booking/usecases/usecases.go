@@ -62,7 +62,7 @@ func (u *usecase) PaymentCancel(ctx context.Context, payload *request.PaymentCan
 
 		messageUUID := watermill.NewUUID()
 
-		specPayload := request.DecrementStockTicket{
+		specPayload := request.StockTicket{
 			TicketDetailID: booking.TicketDetailID,
 			TotalTickets:   booking.TotalTickets,
 		}
@@ -145,6 +145,29 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment, emailUs
 	err = u.repo.DeleteTaskScheduler(ctx, dataPayment.TaskID)
 	if err != nil {
 		return errors.InternalServerError("error delete task scheduler")
+	}
+
+	// publish to rabbit mq for decrement stock ticket to ticket service
+	booking, err := u.repo.FindBookingByID(ctx, payload.BookingID)
+	if err != nil {
+		return errors.InternalServerError(fmt.Sprintf("error find booking by booking id: %v", err))
+	}
+
+	messageUUID := watermill.NewUUID()
+
+	specPayload := request.StockTicket{
+		TicketDetailID: booking.TicketDetailID,
+		TotalTickets:   booking.TotalTickets,
+	}
+
+	jsonPayload, err := json.Marshal(specPayload)
+	if err != nil {
+		return errors.InternalServerError("error marshal payload")
+	}
+
+	err = u.publish.Publish("decrement_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
+	if err != nil {
+		u.log.Ctx(ctx).Error(fmt.Sprintf("error publish decrement stock ticket: %v", err))
 	}
 
 	// 4. send notification to user about payment
@@ -306,25 +329,6 @@ func (u *usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.B
 		return errors.InternalServerError("error upsert payment")
 	}
 
-	// 7. publish to rabbit mq for decrement stock ticket to ticket service
-
-	messageUUID := watermill.NewUUID()
-
-	specPayload := request.DecrementStockTicket{
-		TicketDetailID: payload.TicketDetailID,
-		TotalTickets:   payload.TotalTickets,
-	}
-
-	jsonPayload, err := json.Marshal(specPayload)
-	if err != nil {
-		return errors.InternalServerError("error marshal payload")
-	}
-
-	err = u.publish.Publish("decrement_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
-	if err != nil {
-		u.log.Ctx(ctx).Error(fmt.Sprintf("error publish decrement stock ticket: %v", err))
-	}
-
 	// 8. send notification to user about payment
 
 	payloadNotification := request.NotificationInvoice{
@@ -399,29 +403,10 @@ func (u *usecase) SetPaymentExpired(ctx context.Context, payload *request.Paymen
 			return err
 		}
 
-		// 4. publish to rabbit mq for increment stock ticket to ticket service
-
-		messageUUID := watermill.NewUUID()
-
-		specPayload := request.DecrementStockTicket{
-			TicketDetailID: payload.TicketDetailID,
-			TotalTickets:   payload.TotalTickets,
-		}
-
-		jsonPayload, err := json.Marshal(specPayload)
-		if err != nil {
-			return errors.InternalServerError("error marshal payload")
-		}
-
+		// 4. increment stock ticket to ticket service
 		err = u.repo.IncrementStockTicket(ctx, payload.TicketDetailID)
 		if err != nil {
-			return errors.InternalServerError("error increment stock ticket")
-		}
-
-		err = u.publish.Publish("increment_stock_ticket", message.NewMessage(messageUUID, jsonPayload))
-
-		if err != nil {
-			u.log.Ctx(ctx).Error(fmt.Sprintf("error publish increment stock ticket: %v", err))
+			u.log.Ctx(ctx).Error(fmt.Sprintf("error increment stock ticket: %v", err))
 			return err
 		}
 	}
