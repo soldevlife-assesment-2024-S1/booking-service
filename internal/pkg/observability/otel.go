@@ -10,7 +10,7 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/host"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
@@ -39,11 +39,12 @@ func InitConn(cfg *config.Config) (*grpc.ClientConn, string, error) {
 	return conn, cfg.ServiceName, err
 }
 
-func InitLogOtel(conn *grpc.ClientConn, serviceName string) {
-	logExporter, err := otlploggrpc.New(context.Background(), otlploggrpc.WithGRPCConn(conn))
-	if err != nil {
-		log.Fatalf("failed to create log exporter: %v", err)
-	}
+func InitLogOtel(cfg *config.Config, serviceName string) {
+	// logExporter, err := otlploggrpc.New(context.Background(), otlploggrpc.WithGRPCConn(conn))
+	// if err != nil {
+	// 	log.Fatalf("failed to create log exporter: %v", err)
+	// }
+	logExporter, _ := otlploghttp.New(context.Background(), otlploghttp.WithEndpoint(cfg.OpenTelemetry.HttpEndpoint))
 	processor := sdklog.NewBatchProcessor(logExporter)
 	sdklog.NewLoggerProvider(
 		sdklog.WithProcessor(processor),

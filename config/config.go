@@ -97,7 +97,8 @@ type LoggerConfig struct {
 }
 
 type OpenTelemetryConfig struct {
-	Endpoint string `envconfig:"otel_endpoint"`
+	Endpoint     string `envconfig:"otel_endpoint"`
+	HttpEndpoint string `envconfig:"otel_http_endpoint"`
 }
 
 func InitConfig() *Config {

@@ -102,6 +102,7 @@ require (
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/uptrace/opentelemetry-go-extra/otelzap v0.2.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0
+	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.3.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.27.0
 	go.opentelemetry.io/otel/sdk/metric v1.27.0
 	golang.org/x/sys v0.21.0 // indirect
