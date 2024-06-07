@@ -11,6 +11,7 @@ import (
 	log_internal "booking-service/internal/pkg/log"
 	"booking-service/internal/pkg/messagestream"
 	"booking-service/internal/pkg/middleware"
+	"booking-service/internal/pkg/observability"
 	"booking-service/internal/pkg/redis"
 	"booking-service/internal/pkg/scheduler"
 	router "booking-service/internal/route"
@@ -117,16 +118,17 @@ func initService(cfg *config.Config) (*fiber.App, []*message.Router) {
 
 	// setup http server
 	serverHttp := http.SetupHttpEngine()
-	conn, serviceName, err := http.InitConn(cfg)
+	conn, serviceName, err := observability.InitConn(cfg)
 	if err != nil {
 		logger.Ctx(ctx).Fatal(fmt.Sprintf("Failed to create gRPC connection to collector: %v", err))
 	}
-
+	// setup log
+	observability.InitLogOtel(conn, serviceName)
 	// setup tracer
-	http.InitTracer(conn, serviceName)
+	observability.InitTracer(conn, serviceName)
 
 	// setup meter
-	_, err = http.InitMeterProvider(conn, serviceName)
+	_, err = observability.InitMeterProvider(conn, serviceName)
 	if err != nil {
 		logger.Ctx(ctx).Fatal(fmt.Sprintf("Failed to create meter provider: %v", err))
 	}
