@@ -19,6 +19,7 @@ type Config struct {
 	Database         DatabaseConfig
 	ServiceName      string `envconfig:"service_name"`
 	OpenTelemetry    OpenTelemetryConfig
+	PaymentService   PaymentServiceConfig
 }
 
 type SchedulerServiceConfig struct {
@@ -84,6 +85,10 @@ type HttpClientConfig struct {
 	ErrorRate           float64 `envconfig:"http_client_error_rate"` // 0.001 - 0.999
 	Threshold           int     `envconfig:"http_client_threshold"`
 	Type                string  `envconfig:"http_client_type"` // consecutive, error_rate
+}
+
+type PaymentServiceConfig struct {
+	Endpoint string `envconfig:"payment_service_endpoint"`
 }
 
 type HttpServerConfig struct {

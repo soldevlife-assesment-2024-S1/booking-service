@@ -24,15 +24,13 @@ import (
 )
 
 type repositories struct {
-	db                  *sqlx.DB
-	log                 *otelzap.Logger
-	httpClient          *circuit.HTTPClient
-	cfgTicketService    *config.TicketServiceConfig
-	cfgUserService      *config.UserServiceConfig
-	cfgSchedulerService *config.SchedulerServiceConfig
-	redisClient         *redis.Client
-	clientScheduler     *asynq.Client
-	cb                  *circuit.Breaker
+	db              *sqlx.DB
+	log             *otelzap.Logger
+	httpClient      *circuit.HTTPClient
+	cfg             *config.Config
+	redisClient     *redis.Client
+	clientScheduler *asynq.Client
+	cb              *circuit.Breaker
 }
 
 // SubmitPayment implements Repositories.
@@ -40,7 +38,7 @@ func (r *repositories) SubmitPayment(ctx context.Context, bookingID string, amou
 	if !r.cb.Ready() {
 		return errors.InternalServerError("error submit payment, 3rd party service is down")
 	}
-	url := fmt.Sprintf("http://%s:%s/api/private/payment/submit", r.cfgUserService.Host, r.cfgUserService.Port)
+	url := fmt.Sprintf(r.cfg.PaymentService.Endpoint)
 	payload := map[string]interface{}{
 		"booking_id":     bookingID,
 		"amount":         amount,
@@ -88,7 +86,7 @@ func (r *repositories) DeleteTaskScheduler(ctx context.Context, taskID string) e
 	if !r.cb.Ready() {
 		return errors.InternalServerError("error delete task scheduler")
 	}
-	url := fmt.Sprintf("http://%s:%s/monitoring/api/queues/default/scheduled_tasks:batch_delete", r.cfgSchedulerService.Host, r.cfgSchedulerService.Port)
+	url := fmt.Sprintf("http://%s:%s/monitoring/api/queues/default/scheduled_tasks:batch_delete", r.cfg.SchedulerService.Host, r.cfg.SchedulerService.Port)
 	payload := map[string]interface{}{
 		"task_ids": []string{taskID},
 	}
@@ -136,7 +134,7 @@ func (r *repositories) InquiryTicketAmount(ctx context.Context, ticketDetailID i
 	if !r.cb.Ready() {
 		return 0, errors.InternalServerError("error inquiry ticket amount")
 	}
-	url := fmt.Sprintf("http://%s:%s/api/private/ticket/inquiry?ticket_detail_id=%d&total_ticket=%d", r.cfgTicketService.Host, r.cfgTicketService.Port, ticketDetailID, totalTicket)
+	url := fmt.Sprintf("http://%s:%s/api/private/ticket/inquiry?ticket_detail_id=%d&total_ticket=%d", r.cfg.TicketService.Host, r.cfg.TicketService.Port, ticketDetailID, totalTicket)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 0, errors.InternalServerError("error inquiry ticket amount")
@@ -193,7 +191,7 @@ func (r *repositories) CheckStockTicket(ctx context.Context, ticketDetailID int6
 			return 0, errors.InternalServerError("error check stock ticket")
 		}
 		// hit api ticket service to get stock ticket
-		url := fmt.Sprintf("http://%s:%s/api/private/ticket/stock?ticket_detail_id=%d", r.cfgTicketService.Host, r.cfgTicketService.Port, ticketDetailID)
+		url := fmt.Sprintf("http://%s:%s/api/private/ticket/stock?ticket_detail_id=%d", r.cfg.TicketService.Host, r.cfg.TicketService.Port, ticketDetailID)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
 			return 0, errors.InternalServerError("error get stock ticket")
@@ -414,7 +412,7 @@ func (r *repositories) ValidateToken(ctx context.Context, token string) (respons
 			UserID:  0,
 		}, errors.InternalServerError("error validate token")
 	}
-	url := fmt.Sprintf("http://%s:%s/api/private/user/validate?token=%s", r.cfgUserService.Host, r.cfgUserService.Port, token)
+	url := fmt.Sprintf("http://%s:%s/api/private/user/validate?token=%s", r.cfg.UserService.Host, r.cfg.UserService.Port, token)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return response.UserServiceValidate{
@@ -493,16 +491,14 @@ type Repositories interface {
 	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
 }
 
-func New(db *sqlx.DB, log *otelzap.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfgUserService *config.UserServiceConfig, cfgTicketService *config.TicketServiceConfig, cfgSchedulerService *config.SchedulerServiceConfig, clientScheduler *asynq.Client, cb *circuit.Breaker) Repositories {
+func New(db *sqlx.DB, log *otelzap.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfg *config.Config, clientScheduler *asynq.Client, cb *circuit.Breaker) Repositories {
 	return &repositories{
-		db:                  db,
-		log:                 log,
-		httpClient:          httpClient,
-		redisClient:         redisClient,
-		cfgUserService:      cfgUserService,
-		cfgTicketService:    cfgTicketService,
-		cfgSchedulerService: cfgSchedulerService,
-		clientScheduler:     clientScheduler,
-		cb:                  cb,
+		db:              db,
+		log:             log,
+		httpClient:      httpClient,
+		redisClient:     redisClient,
+		cfg:             cfg,
+		clientScheduler: clientScheduler,
+		cb:              cb,
 	}
 }
