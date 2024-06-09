@@ -120,6 +120,15 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment, emailUs
 		return errors.BadRequest("payment already paid / expired")
 	}
 
+	paymentDate := time.Now().Round(time.Second)
+
+	// paid to 3rd party
+
+	err = u.repo.SubmitPayment(ctx, payload.BookingID, payload.TotalAmount, payload.PaymetMethod, paymentDate)
+	if err != nil {
+		return errors.InternalServerError("error submit payment")
+	}
+
 	// 2. insert to db
 
 	bookingID := uuid.MustParse(payload.BookingID)
@@ -130,7 +139,7 @@ func (u *usecase) Payment(ctx context.Context, payload *request.Payment, emailUs
 		Currency:          "USD",
 		Status:            "paid",
 		PaymentMethod:     payload.PaymetMethod,
-		PaymentDate:       time.Now().Round(time.Second),
+		PaymentDate:       paymentDate,
 		PaymentExpiration: dataPayment.PaymentExpiration,
 		TaskID:            dataPayment.TaskID,
 	}

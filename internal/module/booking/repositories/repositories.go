@@ -35,6 +35,42 @@ type repositories struct {
 	cb                  *circuit.Breaker
 }
 
+// SubmitPayment implements Repositories.
+func (r *repositories) SubmitPayment(ctx context.Context, bookingID string, amount float64, paymentMethod string, paymentDate time.Time) error {
+	if !r.cb.Ready() {
+		return errors.InternalServerError("error submit payment, 3rd party service is down")
+	}
+	url := fmt.Sprintf("http://%s:%s/api/private/payment/submit", r.cfgUserService.Host, r.cfgUserService.Port)
+	payload := map[string]interface{}{
+		"booking_id":     bookingID,
+		"amount":         amount,
+		"payment_method": paymentMethod,
+		"payment_date":   paymentDate,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return errors.InternalServerError("error submit payment")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		return errors.InternalServerError("error submit payment")
+	}
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return errors.InternalServerError("error submit payment")
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		r.log.Ctx(ctx).Error(fmt.Sprintf("Submit payment failed: %d", resp.StatusCode))
+		return errors.BadRequest("Submit payment failed")
+	}
+
+	return nil
+}
+
 // SetTaskScheduler implements Repositories.
 func (r *repositories) SetTaskScheduler(ctx context.Context, expiredAt time.Duration, payload []byte) (taskID string, err error) {
 	taskPaymentExpiredAt := asynq.NewTask(scheduler.TypeSetPaymentExpired, payload, asynq.MaxRetry(3), asynq.Timeout(expiredAt))
@@ -441,6 +477,7 @@ func (r *repositories) ValidateToken(ctx context.Context, token string) (respons
 type Repositories interface {
 	// http
 	ValidateToken(ctx context.Context, token string) (response.UserServiceValidate, error)
+	SubmitPayment(ctx context.Context, bookingID string, amount float64, paymentMethod string, paymentDate time.Time) error
 	InquiryTicketAmount(ctx context.Context, ticketDetailID int64, totalTicket int) (float64, error)
 	DeleteTaskScheduler(ctx context.Context, taskID string) error
 	// redis

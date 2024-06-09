@@ -182,6 +182,20 @@ func (_m *Repositories) SetTaskScheduler(ctx context.Context, expiredAt time.Dur
 	return r0, r1
 }
 
+// SubmitPayment provides a mock function with given fields: ctx, bookingID, amount, paymentMethod, paymentDate
+func (_m *Repositories) SubmitPayment(ctx context.Context, bookingID string, amount float64, paymentMethod string, paymentDate time.Time) error {
+	ret := _m.Called(ctx, bookingID, amount, paymentMethod, paymentDate)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, float64, string, time.Time) error); ok {
+		r0 = rf(ctx, bookingID, amount, paymentMethod, paymentDate)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // UpsertBooking provides a mock function with given fields: ctx, booking
 func (_m *Repositories) UpsertBooking(ctx context.Context, booking *entity.Booking) (string, error) {
 	ret := _m.Called(ctx, booking)
