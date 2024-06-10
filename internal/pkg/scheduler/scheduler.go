@@ -23,7 +23,7 @@ func (s *Scheduler) StartMonitoring(cfg *config.RedisConfig) {
 	ctx := context.Background()
 	redisAddr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 	h := asynqmon.New(asynqmon.Options{
-		RootPath: "/monitoring", // RootPath specifies the root for asynqmon app
+		RootPath: "", // RootPath specifies the root for asynqmon app
 
 		RedisConnOpt: asynq.RedisClientOpt{Addr: redisAddr, Password: cfg.Password, DB: cfg.DB},
 	})
