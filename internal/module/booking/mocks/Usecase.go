@@ -40,6 +40,27 @@ func (_m *Usecase) ConsumeBookTicketQueue(ctx context.Context, payload *request.
 	return r0
 }
 
+// CountPendingPayment provides a mock function with given fields: ctx, ticketID
+func (_m *Usecase) CountPendingPayment(ctx context.Context, ticketID int64) (response.PendingPayment, error) {
+	ret := _m.Called(ctx, ticketID)
+
+	var r0 response.PendingPayment
+	if rf, ok := ret.Get(0).(func(context.Context, int64) response.PendingPayment); ok {
+		r0 = rf(ctx, ticketID)
+	} else {
+		r0 = ret.Get(0).(response.PendingPayment)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, ticketID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Payment provides a mock function with given fields: ctx, payload, emailUser
 func (_m *Usecase) Payment(ctx context.Context, payload *request.Payment, emailUser string) error {
 	ret := _m.Called(ctx, payload, emailUser)

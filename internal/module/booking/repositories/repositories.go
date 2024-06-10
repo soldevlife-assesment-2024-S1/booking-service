@@ -33,6 +33,17 @@ type repositories struct {
 	cb              *circuit.Breaker
 }
 
+// FindPaymentByTicketID implements Repositories.
+func (r *repositories) CountPendingPaymentByTicketID(ctx context.Context, ticketID int64) (int64, error) {
+	query := fmt.Sprintf(`SELECT COUNT(p.id) FROM payments AS p INNER JOIN bookings as b ON b.id = p.booking_id WHERE b.ticket_detail_id = %d AND p.status = 'pending';`, ticketID)
+	var count int64
+	err := r.db.GetContext(ctx, &count, query)
+	if err != nil {
+		return 0, errors.InternalServerError("error count pending payment by ticket id")
+	}
+	return count, nil
+}
+
 // SubmitPayment implements Repositories.
 func (r *repositories) SubmitPayment(ctx context.Context, bookingID string, amount float64, paymentMethod string, paymentDate time.Time) error {
 	if !r.cb.Ready() {
@@ -489,6 +500,7 @@ type Repositories interface {
 	FindBookingByUserID(ctx context.Context, userID int64) (entity.Booking, error)
 	FindBookingByID(ctx context.Context, bookingID string) (entity.Booking, error)
 	FindPaymentByBookingID(ctx context.Context, bookingID string) (entity.Payment, error)
+	CountPendingPaymentByTicketID(ctx context.Context, ticketID int64) (int64, error)
 }
 
 func New(db *sqlx.DB, log *otelzap.Logger, httpClient *circuit.HTTPClient, redisClient *redis.Client, cfg *config.Config, clientScheduler *asynq.Client, cb *circuit.Breaker) Repositories {

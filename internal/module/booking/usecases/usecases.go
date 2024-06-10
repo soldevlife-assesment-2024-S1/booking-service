@@ -24,6 +24,21 @@ type usecase struct {
 	publish message.Publisher
 }
 
+// CountPendingPayment implements Usecase.
+func (u *usecase) CountPendingPayment(ctx context.Context, ticketID int64) (response.PendingPayment, error) {
+	// 1. find pending payment by ticket id
+	count, err := u.repo.CountPendingPaymentByTicketID(ctx, ticketID)
+	if err != nil {
+		return response.PendingPayment{}, errors.InternalServerError("error count pending payment by ticket id")
+	}
+
+	response := response.PendingPayment{
+		PendingTickets: count,
+	}
+
+	return response, nil
+}
+
 // PaymentCancel implements Usecase.
 func (u *usecase) PaymentCancel(ctx context.Context, payload *request.PaymentCancellation, emailUser string) error {
 	// 1. find payment by booking id
@@ -431,6 +446,7 @@ type Usecase interface {
 	Payment(ctx context.Context, payload *request.Payment, emailUser string) error
 	PaymentCancel(ctx context.Context, payload *request.PaymentCancellation, emailUser string) error
 	SetPaymentExpired(ctx context.Context, payload *request.PaymentExpiration) error
+	CountPendingPayment(ctx context.Context, ticketID int64) (response.PendingPayment, error)
 }
 
 func New(repo repositories.Repositories, log *otelzap.Logger, publish message.Publisher) Usecase {

@@ -24,6 +24,9 @@ func Initialize(app *fiber.App, handlerBooking *handler.BookingHandler, m *middl
 	v1.Post("/payment", m.ValidateToken, handlerBooking.Payment)
 	v1.Post("/payment/cancel", m.ValidateToken, handlerBooking.PaymentCancel)
 
+	private := Api.Group("/private")
+	private.Get("/payment/pending", handlerBooking.CountPendingPayment)
+
 	return app
 
 }

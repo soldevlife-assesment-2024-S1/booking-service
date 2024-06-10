@@ -7,6 +7,7 @@ import (
 	"booking-service/internal/pkg/helpers"
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -161,6 +162,23 @@ func (h *BookingHandler) ShowBookings(ctx *fiber.Ctx) error {
 	}
 
 	return helpers.RespSuccess(ctx, h.Log, resp, "success show bookings")
+}
+
+func (h *BookingHandler) CountPendingPayment(ctx *fiber.Ctx) error {
+	TicketDetailID := ctx.Query("ticket_detail")
+	ticketDetailIDInt64, err := strconv.ParseInt(TicketDetailID, 10, 64)
+	if err != nil {
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error parse ticket detail id: %v", err))
+		return helpers.RespError(ctx, h.Log, errors.BadRequest("error parse ticket detail id"))
+	}
+	// call usecase to count pending payment
+	resp, err := h.Usecase.CountPendingPayment(ctx.UserContext(), ticketDetailIDInt64)
+	if err != nil {
+		h.Log.Ctx(ctx.UserContext()).Error(fmt.Sprintf("error count pending payment: %v", err))
+		return helpers.RespError(ctx, h.Log, err)
+	}
+
+	return helpers.RespSuccess(ctx, h.Log, resp, "success count pending payment")
 }
 
 func (h *BookingHandler) SetPaymentExpired(ctx context.Context, t *asynq.Task) error {

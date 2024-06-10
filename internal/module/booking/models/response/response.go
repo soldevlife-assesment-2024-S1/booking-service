@@ -26,3 +26,7 @@ type InquiryTicketAmount struct {
 	TotalTicket int     `json:"total_ticket"`
 	TotalAmount float64 `json:"total_amount"`
 }
+
+type PendingPayment struct {
+	PendingTickets int64 `json:"pending_tickets"`
+}
